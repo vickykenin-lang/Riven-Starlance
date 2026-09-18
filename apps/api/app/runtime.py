@@ -29,7 +29,14 @@ def runtime_status() -> dict[str, object]:
         "models": models,
         "runtime_ready": configured_slots == len(models),
         "web_research_provider": web_adapter.name,
+        "web_research_providers": web_adapter.providers,
         "web_research_ready": web_adapter.enabled,
+        "web_agent_routing": {
+            "researcher-1": "tavily-preferred",
+            "researcher-2": "exa-preferred",
+            "researcher-3": "tavily-preferred",
+            "researcher-4": "exa-preferred",
+        } if web_adapter.name == "multi-provider" else None,
     }
 
 

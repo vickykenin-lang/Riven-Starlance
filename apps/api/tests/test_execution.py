@@ -51,10 +51,10 @@ class FakeWebResearch(WebResearchAdapter):
     name = "fake-web"
 
     def __init__(self) -> None:
-        self.queries: list[str] = []
+        self.queries: list[tuple[str, str | None]] = []
 
-    async def search(self, query: str, *, limit: int = 8) -> list[WebSource]:
-        self.queries.append(query)
+    async def search(self, query: str, *, limit: int = 8, agent_id: str | None = None) -> list[WebSource]:
+        self.queries.append((query, agent_id))
         suffix = len(self.queries)
         return [
             WebSource(
@@ -144,5 +144,9 @@ def test_web_sources_are_bound_and_follow_up_loop_runs():
         assert event_types.count("source.found") >= 4
         assert event_types.count("follow_up.requested") == 4
         assert len(web.queries) >= 8
+        agent_ids = {agent_id for _, agent_id in web.queries if agent_id}
+        assert agent_ids == {"researcher-1", "researcher-2", "researcher-3", "researcher-4"}
+        assert any("official documentation" in query for query, agent_id in web.queries if agent_id == "researcher-1")
+        assert any("contradictions" in query for query, agent_id in web.queries if agent_id == "researcher-3")
 
     asyncio.run(scenario())

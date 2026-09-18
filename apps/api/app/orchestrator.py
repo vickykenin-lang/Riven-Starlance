@@ -20,6 +20,13 @@ DEFAULT_WORKSTREAMS = (
     ("researcher-4", "Verification and synthesis support", "Verify material claims and identify evidence gaps before main-agent review."),
 )
 
+SEARCH_STRATEGIES = {
+    "researcher-1": "Prioritize official documentation, primary records, regulator or company sources, and first-party evidence.",
+    "researcher-2": "Use independent secondary sources, expert analysis, industry publications, and alternative explanations.",
+    "researcher-3": "Actively search for contradictions, criticism, failure cases, risks, disputes, and evidence that challenges the main claim.",
+    "researcher-4": "Cross-check material claims across independent sources, verify dates and facts, and look for corroboration or missing evidence.",
+}
+
 AGENT_SYSTEM_PROMPT = """You are a specialist research agent inside Riven-Starlance.
 Return JSON only with this top-level shape:
 {"summary":"string","findings":[{"claim":"string","evidence":"string","source_refs":[0],"confidence":0.0}],"sources":[{"title":"string","url":null,"source_type":"unknown","is_primary":false}],"contradictions":["string"],"uncertainties":["string"]}
@@ -27,7 +34,7 @@ Never invent sources. Use only evidence candidates supplied in the prompt or exp
 """
 
 MAIN_SYSTEM_PROMPT = """You are the lead research orchestrator for Riven-Starlance.
-Assess all specialist reports and their collected evidence sources. Reconcile contradictions by evidence quality rather than majority vote, identify unresolved uncertainty, and produce a concise evidence-grounded final answer. Never invent citations or claims. Clearly distinguish established findings from uncertainty.
+Assess all specialist reports and their collected evidence sources. Reconcile contradictions by evidence quality rather than majority vote, identify unresolved uncertainty, and produce a concise evidence-grounded final answer. Never invent citations or claims. Clearly distinguish established findings from uncertainty. Consider source diversity and avoid treating repeated evidence from the same domain as independent corroboration.
 """
 
 
@@ -51,7 +58,7 @@ class ResearchOrchestrator:
         run.status = RunStatus.RESEARCHING
         await self._event_bus.publish(AgentEvent(run_id=run.id, type=EventType.PLAN_CREATED, message="Four parallel research workstreams assigned.", metadata={"task_count": 4}))
         for task in run.tasks:
-            await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_ASSIGNED, message=f"Assigned: {task.title}", metadata={"task_id": str(task.id), "objective": task.objective}))
+            await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_ASSIGNED, message=f"Assigned: {task.title}", metadata={"task_id": str(task.id), "objective": task.objective, "search_strategy": SEARCH_STRATEGIES.get(task.agent_id, "")}))
         return run
 
     async def execute_run(
@@ -82,6 +89,13 @@ class ResearchOrchestrator:
             await self._synthesize(run, successful, main_provider, main_model_id)
         return run
 
+    def _web_query(self, run: ResearchRun, task: ResearchTask, gap: str | None = None) -> str:
+        strategy = SEARCH_STRATEGIES.get(task.agent_id, "Find relevant and reliable evidence.")
+        parts = [run.query, task.title, task.objective, strategy]
+        if gap:
+            parts.extend(["Follow-up evidence gap:", gap, "Prefer sources not already used when possible."])
+        return " ".join(part for part in parts if part)
+
     async def _collect_evidence(self, run: ResearchRun, task: ResearchTask) -> str:
         blocks: list[str] = []
         task.evidence_sources = []
@@ -104,7 +118,7 @@ class ResearchOrchestrator:
 
         if self._web_research.enabled:
             try:
-                web_sources = await self._web_research.search(f"{run.query} {task.title} {task.objective}", limit=5)
+                web_sources = await self._web_research.search(self._web_query(run, task), limit=5, agent_id=task.agent_id)
             except Exception as exc:
                 web_sources = []
                 await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.SOURCE_FOUND, message="Web research adapter returned an error; continuing with available evidence.", metadata={"origin": "web", "error": f"{type(exc).__name__}: {exc}"}))
@@ -134,7 +148,7 @@ class ResearchOrchestrator:
             task.evidence_sources.append(evidence)
             existing_urls.add(source.url)
             number = offset + len(blocks) + 1
-            blocks.append(f"[{prefix}{number}] Web: {source.title}\nURL: {source.url}\nSnippet: {source.snippet}")
+            blocks.append(f"[{prefix}{number}] Web ({source.provider}): {source.title}\nURL: {source.url}\nSnippet: {source.snippet}")
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.SOURCE_FOUND, message=f"Web source found: {source.title}", metadata={"origin": "web", "provider": source.provider, "url": source.url, "domain": source.domain or ""}))
         return blocks
 
@@ -146,7 +160,8 @@ class ResearchOrchestrator:
         await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_STARTED, message=f"{task.title} started.", metadata={"model_id": model_id}))
         try:
             evidence_context = await self._collect_evidence(run, task)
-            base_prompt = f"Research question: {run.query}\n\nWorkstream: {task.title}\nObjective: {task.objective}{evidence_context}"
+            strategy = SEARCH_STRATEGIES.get(task.agent_id, "")
+            base_prompt = f"Research question: {run.query}\n\nWorkstream: {task.title}\nObjective: {task.objective}\nResearch strategy: {strategy}{evidence_context}"
             response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=base_prompt, model_id=model_id))
             parsed = AgentResult.model_validate(json.loads(response.text))
 
@@ -154,7 +169,7 @@ class ResearchOrchestrator:
                 gap = (parsed.uncertainties or parsed.contradictions)[0]
                 await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.FOLLOW_UP_REQUESTED, message="Evidence gap detected; targeted follow-up research requested.", metadata={"gap": gap}))
                 try:
-                    follow_sources = await self._web_research.search(f"{run.query} {gap}", limit=3)
+                    follow_sources = await self._web_research.search(self._web_query(run, task, gap), limit=3, agent_id=task.agent_id)
                 except Exception:
                     follow_sources = []
                 follow_blocks = await self._append_web_sources(run, task, follow_sources, prefix="F")
@@ -188,6 +203,7 @@ class ResearchOrchestrator:
             {
                 "agent_id": task.agent_id,
                 "title": task.title,
+                "search_strategy": SEARCH_STRATEGIES.get(task.agent_id, ""),
                 "evidence_sources": [source.model_dump(mode="json") for source in task.evidence_sources],
                 "result": task.result.model_dump(mode="json") if task.result else None,
             }
