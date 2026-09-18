@@ -11,11 +11,11 @@ from .documents import document_store
 from .events import event_bus
 from .models import CreateResearchRunRequest
 from .orchestrator import ResearchOrchestrator
-from .runtime import load_bedrock_runtime, runtime_status
+from .runtime import load_model_runtime, runtime_status
 from .web_research import load_web_research_adapter
 
 
-app = FastAPI(title="Riven-Starlance API", version="0.6.0")
+app = FastAPI(title="Riven-Starlance API", version="0.7.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -30,7 +30,7 @@ orchestrator = ResearchOrchestrator(event_bus, document_store=document_store, we
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "riven-starlance-api", "version": "0.6.0"}
+    return {"status": "ok", "service": "riven-starlance-api", "version": "0.7.0"}
 
 
 @app.get("/api/system/status")
@@ -94,7 +94,7 @@ async def execute_run(run_id: UUID):
     if run is None:
         raise HTTPException(status_code=404, detail="Research run not found")
     try:
-        providers, model_ids, main_provider, main_model_id = load_bedrock_runtime()
+        providers, model_ids, main_provider, main_model_id = load_model_runtime()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
