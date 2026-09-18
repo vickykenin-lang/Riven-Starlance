@@ -8,8 +8,30 @@ from .providers.bedrock import BedrockProvider
 RESEARCHER_IDS = ("researcher-1", "researcher-2", "researcher-3", "researcher-4")
 
 
-def load_bedrock_runtime():
+def runtime_status() -> dict[str, object]:
     region = os.getenv("RIVEN_AWS_REGION", "ap-south-1")
+    model_keys = {
+        "main": "RIVEN_MODEL_MAIN",
+        "researcher-1": "RIVEN_MODEL_RESEARCHER_1",
+        "researcher-2": "RIVEN_MODEL_RESEARCHER_2",
+        "researcher-3": "RIVEN_MODEL_RESEARCHER_3",
+        "researcher-4": "RIVEN_MODEL_RESEARCHER_4",
+    }
+    models = {slot: os.getenv(key) or None for slot, key in model_keys.items()}
+    configured_slots = sum(1 for value in models.values() if value)
+    return {
+        "provider": "aws-bedrock",
+        "region": region,
+        "configured_slots": configured_slots,
+        "required_slots": len(models),
+        "models": models,
+        "runtime_ready": configured_slots == len(models),
+    }
+
+
+def load_bedrock_runtime():
+    status = runtime_status()
+    region = str(status["region"])
     provider = BedrockProvider(region_name=region)
 
     model_ids: dict[str, str] = {}
