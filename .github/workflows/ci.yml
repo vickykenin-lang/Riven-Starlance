@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, phase-1-foundation]
+    branches: [main, phase-1-foundation, phase-2-aws-deployment]
   pull_request:
 
 jobs:
@@ -32,3 +32,12 @@ jobs:
           node-version: "22"
       - run: npm install
       - run: npm run build
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t riven-api:ci apps/api
+      - run: docker build -t riven-dashboard:ci apps/dashboard
+      - run: cp infra/.env.example infra/.env
+      - run: docker compose -f infra/docker-compose.prod.yml config

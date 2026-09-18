@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: ../apps/api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RIVEN_AWS_REGION: ${RIVEN_AWS_REGION:-ap-south-1}
+    expose:
+      - "8000"
+
+  dashboard:
+    build:
+      context: ../apps/dashboard
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - dashboard
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
