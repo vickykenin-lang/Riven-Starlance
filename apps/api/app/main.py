@@ -10,9 +10,10 @@ from fastapi.responses import StreamingResponse
 from .events import event_bus
 from .models import CreateResearchRunRequest
 from .orchestrator import ResearchOrchestrator
+from .runtime import load_bedrock_runtime
 
 
-app = FastAPI(title="Riven-Starlance API", version="0.1.0")
+app = FastAPI(title="Riven-Starlance API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -26,12 +27,34 @@ orchestrator = ResearchOrchestrator(event_bus)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "riven-starlance-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "riven-starlance-api", "version": "0.2.0"}
 
 
 @app.post("/api/runs")
 async def create_run(payload: CreateResearchRunRequest):
     return await orchestrator.create_run(payload.query)
+
+
+@app.post("/api/runs/{run_id}/execute")
+async def execute_run(run_id: UUID):
+    run = orchestrator.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Research run not found")
+    try:
+        providers, model_ids, main_provider, main_model_id = load_bedrock_runtime()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    try:
+        return await orchestrator.execute_run(
+            run_id,
+            providers=providers,
+            model_ids=model_ids,
+            main_provider=main_provider,
+            main_model_id=main_model_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.get("/api/runs/{run_id}")
