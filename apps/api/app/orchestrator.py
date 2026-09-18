@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
+from .documents import DocumentStore
 from .events import EventBus
 from .models import AgentEvent, AgentResult, AgentStatus, EventType, ResearchRun, ResearchTask, RunStatus
 from .providers.base import ModelProvider, ModelRequest
@@ -21,7 +22,7 @@ DEFAULT_WORKSTREAMS = (
 AGENT_SYSTEM_PROMPT = """You are a specialist research agent inside Riven-Starlance.
 Return JSON only with this top-level shape:
 {"summary":"string","findings":[{"claim":"string","evidence":"string","source_refs":[0],"confidence":0.0}],"sources":[{"title":"string","url":null,"source_type":"unknown","is_primary":false}],"contradictions":["string"],"uncertainties":["string"]}
-Never invent sources. If evidence is unavailable, say so in uncertainties and keep findings conservative.
+Never invent sources. If document evidence is provided, treat each numbered excerpt as a source candidate and cite only evidence actually present. If evidence is unavailable, say so in uncertainties and keep findings conservative.
 """
 
 MAIN_SYSTEM_PROMPT = """You are the lead research orchestrator for Riven-Starlance.
@@ -30,8 +31,9 @@ Assess all specialist reports, reconcile contradictions by evidence quality rath
 
 
 class ResearchOrchestrator:
-    def __init__(self, event_bus: EventBus) -> None:
+    def __init__(self, event_bus: EventBus, document_store: DocumentStore | None = None) -> None:
         self._event_bus = event_bus
+        self._document_store = document_store
         self._runs: dict[UUID, ResearchRun] = {}
 
     async def create_run(self, query: str) -> ResearchRun:
@@ -73,6 +75,19 @@ class ResearchOrchestrator:
             await self._synthesize(run, successful, main_provider, main_model_id)
         return run
 
+    def _document_context(self, run: ResearchRun, task: ResearchTask) -> str:
+        if self._document_store is None:
+            return ""
+        contexts = self._document_store.retrieve(f"{run.query} {task.title} {task.objective}", limit=4)
+        if not contexts:
+            return ""
+        blocks = []
+        for index, context in enumerate(contexts, start=1):
+            blocks.append(
+                f"[{index}] Document: {context.filename}; chunk: {context.chunk_index}; score: {context.score}\n{context.text}"
+            )
+        return "\n\nDocument evidence available for this workstream:\n" + "\n\n".join(blocks)
+
     async def _execute_task(self, run: ResearchRun, task: ResearchTask, provider: ModelProvider | None, model_id: str | None) -> None:
         if provider is None or model_id is None:
             await self._fail_task(run, task, "Provider or model is not configured for this agent.")
@@ -80,7 +95,8 @@ class ResearchOrchestrator:
         task.status = AgentStatus.RESEARCHING
         await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_STARTED, message=f"{task.title} started.", metadata={"model_id": model_id}))
         try:
-            response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=f"Research question: {run.query}\n\nWorkstream: {task.title}\nObjective: {task.objective}", model_id=model_id))
+            document_context = self._document_context(run, task)
+            response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=f"Research question: {run.query}\n\nWorkstream: {task.title}\nObjective: {task.objective}{document_context}", model_id=model_id))
             task.status = AgentStatus.VERIFYING
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_VERIFYING, message="Model response received; validating structured evidence."))
             parsed = AgentResult.model_validate(json.loads(response.text))
@@ -93,7 +109,7 @@ class ResearchOrchestrator:
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_COMPLETED, message=f"{task.title} submitted structured findings.", metadata={"findings": len(parsed.findings), "sources": len(parsed.sources), "contradictions": len(parsed.contradictions), "uncertainties": len(parsed.uncertainties)}))
         except (json.JSONDecodeError, ValidationError) as exc:
             await self._fail_task(run, task, f"Structured output invalid: {exc}")
-        except Exception as exc:  # provider/network/runtime errors are captured per agent
+        except Exception as exc:
             await self._fail_task(run, task, f"{type(exc).__name__}: {exc}")
 
     async def _synthesize(self, run: ResearchRun, tasks: list[ResearchTask], provider: ModelProvider, model_id: str) -> None:

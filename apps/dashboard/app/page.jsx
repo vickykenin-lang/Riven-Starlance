@@ -11,7 +11,7 @@ function statusLabel(value) {
 function statusClass(value) {
   const v = String(value || "").toLowerCase();
   if (v.includes("fail") || v.includes("error")) return "status bad";
-  if (v.includes("complete") || v.includes("submitted")) return "status good";
+  if (v.includes("complete") || v.includes("submitted") || v.includes("parsed")) return "status good";
   if (v.includes("research") || v.includes("verify") || v.includes("review") || v.includes("plan")) return "status active";
   return "status idle";
 }
@@ -23,13 +23,22 @@ export default function Home() {
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
   const [system, setSystem] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [sources, setSources] = useState([]);
   const sourceRef = useRef(null);
+
+  async function refreshDocuments() {
+    const response = await fetch(`${API_BASE}/api/documents`);
+    if (response.ok) setDocuments(await response.json());
+  }
 
   useEffect(() => {
     fetch(`${API_BASE}/api/system/status`)
       .then((response) => response.ok ? response.json() : null)
       .then(setSystem)
       .catch(() => setSystem(null));
+    refreshDocuments().catch(() => {});
     return () => sourceRef.current?.close();
   }, []);
 
@@ -40,11 +49,7 @@ export default function Home() {
     }
     for (const event of events) {
       if (event.agent_id && map.has(event.agent_id)) {
-        map.set(event.agent_id, {
-          ...map.get(event.agent_id),
-          latest: event.type,
-          message: event.message,
-        });
+        map.set(event.agent_id, { ...map.get(event.agent_id), latest: event.type, message: event.message });
       }
     }
     return [...map.values()];
@@ -55,6 +60,32 @@ export default function Home() {
     return latest?.type || run?.status || "ready";
   }, [events, run]);
 
+  async function uploadDocument(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch(`${API_BASE}/api/documents`, { method: "POST", body: form });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || "Document upload failed.");
+      await refreshDocuments();
+    } catch (err) {
+      setError(err.message || "Document upload failed.");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function previewEvidence() {
+    if (query.trim().length < 2) return;
+    const response = await fetch(`${API_BASE}/api/sources/search?q=${encodeURIComponent(query)}&limit=6`);
+    if (response.ok) setSources(await response.json());
+  }
+
   async function startResearch(event) {
     event.preventDefault();
     setError("");
@@ -63,6 +94,7 @@ export default function Home() {
     sourceRef.current?.close();
 
     try {
+      await previewEvidence();
       const response = await fetch(`${API_BASE}/api/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,10 +107,7 @@ export default function Home() {
 
       const source = new EventSource(`${API_BASE}/api/runs/${nextRun.id}/events`);
       sourceRef.current = source;
-      source.onmessage = (message) => {
-        const item = JSON.parse(message.data);
-        setEvents((current) => [...current, item]);
-      };
+      source.onmessage = (message) => setEvents((current) => [...current, JSON.parse(message.data)]);
       source.onerror = () => setError((current) => current || "Live event stream disconnected.");
 
       const executeResponse = await fetch(`${API_BASE}/api/runs/${nextRun.id}/execute`, { method: "POST" });
@@ -102,30 +131,59 @@ export default function Home() {
         <div>
           <p className="eyebrow">RIVEN-STARLANCE</p>
           <h1>Research Control Center</h1>
-          <p>One orchestrator, four specialist research agents, real event tracking.</p>
+          <p>One orchestrator, four specialist research agents, documents, evidence and real event tracking.</p>
         </div>
-        <span className="badge">Execution v0.3</span>
+        <span className="badge">Execution v0.4</span>
       </header>
 
       <section className="system-strip">
         <div><span>Provider</span><strong>{system?.provider || "AWS Bedrock"}</strong></div>
         <div><span>Region</span><strong>{system?.region || "ap-south-1"}</strong></div>
         <div><span>Model slots</span><strong>{system ? `${system.configured_slots}/${system.required_slots}` : "checking"}</strong></div>
+        <div><span>Documents</span><strong>{documents.length}</strong></div>
         <div><span>Runtime</span><strong className={system?.runtime_ready ? "good-text" : "warn-text"}>{system?.runtime_ready ? "Configured" : "Pending model mapping"}</strong></div>
       </section>
 
       {!system?.runtime_ready && (
         <section className="notice">
           <strong>Bedrock runtime not ready yet.</strong>
-          <span> Dashboard and orchestration are deployed, but all five model slots must be configured and AWS model authorization must be available before a real research run can execute.</span>
+          <span> Document ingestion and source retrieval are available, but all five model slots and AWS model authorization are required for a real multi-agent run.</span>
         </section>
       )}
+
+      <section className="workspace-grid">
+        <article className="panel">
+          <div className="section-head"><div><p className="eyebrow">DOCUMENTS</p><h2>Research sources</h2></div><span>{documents.length} uploaded</span></div>
+          <label className="upload-button">
+            {uploading ? "Uploading…" : "Upload PDF / DOCX / TXT"}
+            <input type="file" accept=".pdf,.docx,.txt" onChange={uploadDocument} disabled={uploading} hidden />
+          </label>
+          <div className="document-list">
+            {documents.length === 0 ? <p>No documents uploaded yet.</p> : documents.map((doc) => (
+              <div className="document-row" key={doc.id}>
+                <div><strong>{doc.filename}</strong><span>{Math.ceil(doc.size_bytes / 1024)} KB · {doc.chunk_count} chunks</span></div>
+                <span className={statusClass(doc.status)}>{statusLabel(doc.status)}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel evidence-panel">
+          <div className="section-head"><div><p className="eyebrow">EVIDENCE</p><h2>Relevant source preview</h2></div><button type="button" className="secondary" onClick={previewEvidence}>Refresh evidence</button></div>
+          {sources.length === 0 ? <p>Enter a research task and refresh evidence to preview matching document chunks.</p> : sources.map((source) => (
+            <div className="source-row" key={source.chunk_id}>
+              <div className="source-meta"><strong>{source.filename}</strong><span>Chunk {source.chunk_index + 1} · score {source.score}</span></div>
+              <p>{source.text.slice(0, 280)}{source.text.length > 280 ? "…" : ""}</p>
+            </div>
+          ))}
+        </article>
+      </section>
 
       <section className="panel">
         <form onSubmit={startResearch}>
           <label htmlFor="query">Research task</label>
           <textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter a research question or document-analysis objective..." minLength={3} required />
-          <button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button>
+          <div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div>
         </form>
         {error && <p className="error">{error}</p>}
       </section>
@@ -157,30 +215,12 @@ export default function Home() {
       {run && (
         <>
           <section className="summary panel">
-            <div><span>Run</span><strong>{run.id}</strong></div>
-            <div><span>Status</span><strong>{run.status}</strong></div>
-            <div><span>Agents</span><strong>{run.tasks.length}</strong></div>
-            <div><span>Events</span><strong>{events.length}</strong></div>
+            <div><span>Run</span><strong>{run.id}</strong></div><div><span>Status</span><strong>{run.status}</strong></div><div><span>Agents</span><strong>{run.tasks.length}</strong></div><div><span>Events</span><strong>{events.length}</strong></div>
           </section>
-
-          {run.final_answer && (
-            <section className="panel final-panel">
-              <p className="eyebrow">MAIN SYNTHESIS</p>
-              <h2>Final research answer</h2>
-              <p className="final-answer">{run.final_answer}</p>
-            </section>
-          )}
-
+          {run.final_answer && <section className="panel final-panel"><p className="eyebrow">MAIN SYNTHESIS</p><h2>Final research answer</h2><p className="final-answer">{run.final_answer}</p></section>}
           <section className="panel timeline">
             <div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>
-            {events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => (
-              <div className="event" key={item.id}>
-                <time>{new Date(item.timestamp).toLocaleTimeString()}</time>
-                <strong>{statusLabel(item.type)}</strong>
-                <span>{item.agent_id || "orchestrator"}</span>
-                <p>{item.message}</p>
-              </div>
-            ))}
+            {events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{statusLabel(item.type)}</strong><span>{item.agent_id || "orchestrator"}</span><p>{item.message}</p></div>)}
           </section>
         </>
       )}
