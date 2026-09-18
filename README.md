@@ -4,7 +4,7 @@ Riven-Starlance is a multi-agent research platform designed around one orchestra
 
 ## Project status
 
-Foundation phase started. Source implementation is beginning; no production deployment or live Bedrock inference is claimed yet.
+Phase 1 foundation is implemented and the executable research pipeline is now under active development. Source implementation does not imply production deployment or live Bedrock verification.
 
 ## Core architecture
 
@@ -30,7 +30,7 @@ Riven-Starlance keeps these states separate:
 
 ## Planned stack
 
-- Dashboard: Next.js / React / TypeScript
+- Dashboard: Next.js / React / TypeScript/JSX
 - API: FastAPI / Python
 - Realtime: Server-Sent Events initially, WebSocket-compatible event model
 - Database: PostgreSQL
@@ -39,29 +39,27 @@ Riven-Starlance keeps these states separate:
 - AI: Amazon Bedrock first, provider-independent adapter layer
 - Deployment: AWS
 
-## Repository layout
+## Current execution flow
 
 ```text
-apps/
-  api/          FastAPI backend
-  dashboard/    Next.js live control center
-packages/
-  contracts/    shared event and API contracts
-docs/           product and architecture documentation
-infra/          AWS deployment definitions (later phase)
+User task
+  -> Main orchestrator creates four workstreams
+  -> 4 research agents execute in parallel
+  -> each returns structured evidence/findings/sources
+  -> main agent assesses specialist reports
+  -> final synthesis
+  -> every state transition is streamed to the dashboard
 ```
 
-## Current phase
+## Required Bedrock runtime configuration
 
-Phase 1 — Foundation:
+Before live execution, set:
 
-- repository structure
-- API health endpoint
-- research run state model
-- event stream contract
-- orchestrator skeleton
-- Bedrock provider interface
-- live dashboard shell
-- automated checks
+- `RIVEN_AWS_REGION` (defaults to `ap-south-1`)
+- `RIVEN_MODEL_MAIN`
+- `RIVEN_MODEL_RESEARCHER_1`
+- `RIVEN_MODEL_RESEARCHER_2`
+- `RIVEN_MODEL_RESEARCHER_3`
+- `RIVEN_MODEL_RESEARCHER_4`
 
-See `docs/ARCHITECTURE.md` and `docs/STATUS.md` as implementation progresses.
+Model access and live inference must be verified separately in the target AWS account.
