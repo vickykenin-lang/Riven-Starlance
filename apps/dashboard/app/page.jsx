@@ -1,8 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+
+function statusLabel(value) {
+  return String(value || "idle").replaceAll("_", " ").replaceAll(".", " ");
+}
+
+function statusClass(value) {
+  const v = String(value || "").toLowerCase();
+  if (v.includes("fail") || v.includes("error")) return "status bad";
+  if (v.includes("complete") || v.includes("submitted")) return "status good";
+  if (v.includes("research") || v.includes("verify") || v.includes("review") || v.includes("plan")) return "status active";
+  return "status idle";
+}
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -10,7 +22,16 @@ export default function Home() {
   const [events, setEvents] = useState([]);
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
+  const [system, setSystem] = useState(null);
   const sourceRef = useRef(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/system/status`)
+      .then((response) => response.ok ? response.json() : null)
+      .then(setSystem)
+      .catch(() => setSystem(null));
+    return () => sourceRef.current?.close();
+  }, []);
 
   const agentStates = useMemo(() => {
     const map = new Map();
@@ -19,11 +40,20 @@ export default function Home() {
     }
     for (const event of events) {
       if (event.agent_id && map.has(event.agent_id)) {
-        map.set(event.agent_id, { ...map.get(event.agent_id), latest: event.message, eventType: event.type });
+        map.set(event.agent_id, {
+          ...map.get(event.agent_id),
+          latest: event.type,
+          message: event.message,
+        });
       }
     }
     return [...map.values()];
   }, [run, events]);
+
+  const orchestratorState = useMemo(() => {
+    const latest = [...events].reverse().find((event) => !event.agent_id);
+    return latest?.type || run?.status || "ready";
+  }, [events, run]);
 
   async function startResearch(event) {
     event.preventDefault();
@@ -56,14 +86,15 @@ export default function Home() {
         const payload = await executeResponse.json().catch(() => ({}));
         throw new Error(payload.detail || "Research execution could not start.");
       }
-      const finishedRun = await executeResponse.json();
-      setRun(finishedRun);
+      setRun(await executeResponse.json());
     } catch (err) {
       setError(err.message || "Research execution failed.");
     } finally {
       setExecuting(false);
     }
   }
+
+  const modelEntries = Object.entries(system?.models || {});
 
   return (
     <main>
@@ -73,8 +104,22 @@ export default function Home() {
           <h1>Research Control Center</h1>
           <p>One orchestrator, four specialist research agents, real event tracking.</p>
         </div>
-        <span className="badge">Execution v0.2</span>
+        <span className="badge">Execution v0.3</span>
       </header>
+
+      <section className="system-strip">
+        <div><span>Provider</span><strong>{system?.provider || "AWS Bedrock"}</strong></div>
+        <div><span>Region</span><strong>{system?.region || "ap-south-1"}</strong></div>
+        <div><span>Model slots</span><strong>{system ? `${system.configured_slots}/${system.required_slots}` : "checking"}</strong></div>
+        <div><span>Runtime</span><strong className={system?.runtime_ready ? "good-text" : "warn-text"}>{system?.runtime_ready ? "Configured" : "Pending model mapping"}</strong></div>
+      </section>
+
+      {!system?.runtime_ready && (
+        <section className="notice">
+          <strong>Bedrock runtime not ready yet.</strong>
+          <span> Dashboard and orchestration are deployed, but all five model slots must be configured and AWS model authorization must be available before a real research run can execute.</span>
+        </section>
+      )}
 
       <section className="panel">
         <form onSubmit={startResearch}>
@@ -83,6 +128,30 @@ export default function Home() {
           <button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button>
         </form>
         {error && <p className="error">{error}</p>}
+      </section>
+
+      <section className="control-grid">
+        <article className="agent-card main-agent">
+          <div className="card-head"><p className="eyebrow">MAIN AGENT</p><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div>
+          <h2>Research Orchestrator</h2>
+          <p>Plans the task, assigns four workstreams, reviews evidence, resolves conflicts and produces the final synthesis.</p>
+          <div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div>
+        </article>
+
+        {modelEntries.filter(([slot]) => slot !== "main").map(([slot, model], index) => {
+          const live = agentStates.find((agent) => agent.agent_id === slot);
+          return (
+            <article className="agent-card" key={slot}>
+              <div className="card-head"><p className="eyebrow">RESEARCHER {index + 1}</p><span className={statusClass(live?.latest)}>{statusLabel(live?.latest || "ready")}</span></div>
+              <h2>{live?.title || `Research Agent ${index + 1}`}</h2>
+              <p>{live?.objective || "Dynamic research role assigned by the main orchestrator for each run."}</p>
+              <div className="meta-line"><span>Model</span><strong>{live?.result?.model_id || model || "Pending"}</strong></div>
+              {live?.message && <p className="live-message">{live.message}</p>}
+              {live?.result && <p><strong>{live.result.findings.length}</strong> findings · <strong>{live.result.sources.length}</strong> sources</p>}
+              {live?.error && <p className="error">{live.error}</p>}
+            </article>
+          );
+        })}
       </section>
 
       {run && (
@@ -94,32 +163,20 @@ export default function Home() {
             <div><span>Events</span><strong>{events.length}</strong></div>
           </section>
 
-          <section className="grid">
-            {agentStates.map((agent) => (
-              <article className="agent-card" key={agent.agent_id}>
-                <p className="eyebrow">{agent.agent_id}</p>
-                <h2>{agent.title}</h2>
-                <p>{agent.objective}</p>
-                <div className="status-line"><span className="dot" />{agent.latest}</div>
-                {agent.result && <p><strong>{agent.result.findings.length}</strong> findings · <strong>{agent.result.sources.length}</strong> sources</p>}
-                {agent.error && <p className="error">{agent.error}</p>}
-              </article>
-            ))}
-          </section>
-
           {run.final_answer && (
-            <section className="panel">
-              <h2>Main-agent synthesis</h2>
+            <section className="panel final-panel">
+              <p className="eyebrow">MAIN SYNTHESIS</p>
+              <h2>Final research answer</h2>
               <p className="final-answer">{run.final_answer}</p>
             </section>
           )}
 
           <section className="panel timeline">
-            <h2>Live event timeline</h2>
+            <div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>
             {events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => (
               <div className="event" key={item.id}>
                 <time>{new Date(item.timestamp).toLocaleTimeString()}</time>
-                <strong>{item.type}</strong>
+                <strong>{statusLabel(item.type)}</strong>
                 <span>{item.agent_id || "orchestrator"}</span>
                 <p>{item.message}</p>
               </div>
