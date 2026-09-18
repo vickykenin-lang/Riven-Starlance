@@ -6,11 +6,13 @@ from app.events import EventBus
 from app.models import AgentStatus, RunStatus
 from app.orchestrator import ResearchOrchestrator
 from app.providers.base import ModelProvider, ModelRequest, ModelResponse
+from app.web_research import WebResearchAdapter, WebSource
 
 
 class FakeProvider(ModelProvider):
-    def __init__(self) -> None:
+    def __init__(self, with_gap: bool = False) -> None:
         self.requests: list[ModelRequest] = []
+        self.with_gap = with_gap
 
     async def invoke(self, request: ModelRequest) -> ModelResponse:
         self.requests.append(request)
@@ -18,6 +20,7 @@ class FakeProvider(ModelProvider):
         if request.system_prompt.startswith("You are the lead research orchestrator"):
             text = "Final synthesis based on four specialist reports."
         else:
+            has_follow_up = "Additional follow-up evidence" in request.user_prompt
             text = json.dumps(
                 {
                     "summary": "Evidence-backed test summary",
@@ -38,10 +41,30 @@ class FakeProvider(ModelProvider):
                         }
                     ],
                     "contradictions": [],
-                    "uncertainties": [],
+                    "uncertainties": [] if not self.with_gap or has_follow_up else ["Need an independent authority source"],
                 }
             )
         return ModelResponse(text=text, provider="fake", model_id=request.model_id, input_tokens=10, output_tokens=20)
+
+
+class FakeWebResearch(WebResearchAdapter):
+    name = "fake-web"
+
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    async def search(self, query: str, *, limit: int = 8) -> list[WebSource]:
+        self.queries.append(query)
+        suffix = len(self.queries)
+        return [
+            WebSource(
+                title=f"Authority source {suffix}",
+                url=f"https://authority.example/{suffix}",
+                snippet="Authority approval is required before handover.",
+                provider=self.name,
+                is_primary=True,
+            )
+        ]
 
 
 def test_parallel_execution_and_main_synthesis():
@@ -94,8 +117,32 @@ def test_uploaded_document_context_is_bound_to_agent_prompts(tmp_path):
 
         agent_requests = [request for request in provider.requests if not request.system_prompt.startswith("You are the lead research orchestrator")]
         assert len(agent_requests) == 4
-        assert any("Document evidence available" in request.user_prompt for request in agent_requests)
+        assert any("Evidence candidates" in request.user_prompt for request in agent_requests)
         assert any("commissioning.txt" in request.user_prompt for request in agent_requests)
         assert any("authority approval" in request.user_prompt for request in agent_requests)
+        assert all(any(source.origin == "document" for source in task.evidence_sources) for task in run.tasks)
+
+    asyncio.run(scenario())
+
+
+def test_web_sources_are_bound_and_follow_up_loop_runs():
+    async def scenario():
+        bus = EventBus()
+        web = FakeWebResearch()
+        orchestrator = ResearchOrchestrator(bus, web_research=web)
+        run = await orchestrator.create_run("Assess authority approval requirements")
+        provider = FakeProvider(with_gap=True)
+        providers = {task.agent_id: provider for task in run.tasks}
+        models = {task.agent_id: "test-model" for task in run.tasks}
+
+        completed = await orchestrator.execute_run(run.id, providers=providers, model_ids=models)
+
+        assert all(task.status == AgentStatus.SUBMITTED for task in completed.tasks)
+        assert all(any(source.origin == "web" for source in task.evidence_sources) for task in completed.tasks)
+        assert any("authority.example" in request.user_prompt for request in provider.requests)
+        event_types = [event.type.value for event in bus.history(run.id)]
+        assert event_types.count("source.found") >= 4
+        assert event_types.count("follow_up.requested") == 4
+        assert len(web.queries) >= 8
 
     asyncio.run(scenario())
