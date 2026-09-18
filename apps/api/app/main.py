@@ -15,7 +15,7 @@ from .runtime import load_bedrock_runtime, runtime_status
 from .web_research import load_web_research_adapter
 
 
-app = FastAPI(title="Riven-Starlance API", version="0.5.0")
+app = FastAPI(title="Riven-Starlance API", version="0.6.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -30,7 +30,7 @@ orchestrator = ResearchOrchestrator(event_bus, document_store=document_store, we
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "riven-starlance-api", "version": "0.5.0"}
+    return {"status": "ok", "service": "riven-starlance-api", "version": "0.6.0"}
 
 
 @app.get("/api/system/status")
@@ -72,13 +72,13 @@ async def search_sources(q: str, limit: int = 8):
 
 
 @app.get("/api/web/search")
-async def search_web(q: str, limit: int = 8):
+async def search_web(q: str, limit: int = 8, agent_id: str | None = None):
     if len(q.strip()) < 2:
         raise HTTPException(status_code=400, detail="Search query is too short")
     if not web_research.enabled:
         raise HTTPException(status_code=503, detail="Web research provider is not configured")
     try:
-        return await web_research.search(q, limit=max(1, min(limit, 20)))
+        return await web_research.search(q, limit=max(1, min(limit, 20)), agent_id=agent_id)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Web research failed: {type(exc).__name__}: {exc}") from exc
 
