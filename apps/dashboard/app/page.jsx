@@ -34,10 +34,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/system/status`)
-      .then((response) => response.ok ? response.json() : null)
-      .then(setSystem)
-      .catch(() => setSystem(null));
+    fetch(`${API_BASE}/api/system/status`).then((response) => response.ok ? response.json() : null).then(setSystem).catch(() => setSystem(null));
     refreshDocuments().catch(() => {});
     return () => sourceRef.current?.close();
   }, []);
@@ -91,23 +88,16 @@ export default function Home() {
     setEvents([]);
     setExecuting(true);
     sourceRef.current?.close();
-
     try {
       await previewEvidence();
-      const response = await fetch(`${API_BASE}/api/runs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
+      const response = await fetch(`${API_BASE}/api/runs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
       if (!response.ok) throw new Error("Could not create research run.");
-
       const nextRun = await response.json();
       setRun(nextRun);
       const source = new EventSource(`${API_BASE}/api/runs/${nextRun.id}/events`);
       sourceRef.current = source;
       source.onmessage = (message) => setEvents((current) => [...current, JSON.parse(message.data)]);
       source.onerror = () => setError((current) => current || "Live event stream disconnected.");
-
       const executeResponse = await fetch(`${API_BASE}/api/runs/${nextRun.id}/execute`, { method: "POST" });
       if (!executeResponse.ok) {
         const payload = await executeResponse.json().catch(() => ({}));
@@ -122,88 +112,45 @@ export default function Home() {
   }
 
   const modelEntries = Object.entries(system?.models || {});
+  const webProviders = system?.web_research_providers?.join(" + ") || system?.web_research_provider || "Disabled";
 
   return (
     <main>
-      <header>
-        <div>
-          <p className="eyebrow">RIVEN-STARLANCE</p>
-          <h1>Research Control Center</h1>
-          <p>One orchestrator, four specialist research agents, unified document/web evidence and real event tracking.</p>
-        </div>
-        <span className="badge">Execution v0.5</span>
-      </header>
+      <header><div><p className="eyebrow">RIVEN-STARLANCE</p><h1>Research Control Center</h1><p>One orchestrator, four specialist research agents, diversified web search, unified evidence and real event tracking.</p></div><span className="badge">Execution v0.6</span></header>
 
       <section className="system-strip">
         <div><span>Provider</span><strong>{system?.provider || "AWS Bedrock"}</strong></div>
         <div><span>Region</span><strong>{system?.region || "ap-south-1"}</strong></div>
         <div><span>Model slots</span><strong>{system ? `${system.configured_slots}/${system.required_slots}` : "checking"}</strong></div>
         <div><span>Documents</span><strong>{documents.length}</strong></div>
-        <div><span>Web research</span><strong className={system?.web_research_ready ? "good-text" : "warn-text"}>{system?.web_research_ready ? system.web_research_provider : "Disabled"}</strong></div>
+        <div><span>Web research</span><strong className={system?.web_research_ready ? "good-text" : "warn-text"}>{system?.web_research_ready ? webProviders : "Disabled"}</strong></div>
         <div><span>Runtime</span><strong className={system?.runtime_ready ? "good-text" : "warn-text"}>{system?.runtime_ready ? "Configured" : "Pending model mapping"}</strong></div>
       </section>
 
-      {!system?.runtime_ready && (
-        <section className="notice">
-          <strong>Bedrock runtime not ready yet.</strong>
-          <span> Document and evidence layers are available, but all five model slots and AWS model authorization are required for a real multi-agent run.</span>
-        </section>
-      )}
+      {!system?.runtime_ready && <section className="notice"><strong>Bedrock runtime not ready yet.</strong><span> Document and evidence layers are available, but all five model slots and AWS model authorization are required for a real multi-agent run.</span></section>}
+
+      {system?.web_research_provider === "multi-provider" && <section className="notice"><strong>Diversified web research active.</strong><span> Researchers 1/3 prefer Tavily; Researchers 2/4 prefer Exa, with automatic provider fallback.</span></section>}
 
       <section className="workspace-grid">
-        <article className="panel">
-          <div className="section-head"><div><p className="eyebrow">DOCUMENTS</p><h2>Research sources</h2></div><span>{documents.length} uploaded</span></div>
-          <label className="upload-button">{uploading ? "Uploading…" : "Upload PDF / DOCX / TXT"}<input type="file" accept=".pdf,.docx,.txt" onChange={uploadDocument} disabled={uploading} hidden /></label>
-          <div className="document-list">
-            {documents.length === 0 ? <p>No documents uploaded yet.</p> : documents.map((doc) => <div className="document-row" key={doc.id}><div><strong>{doc.filename}</strong><span>{Math.ceil(doc.size_bytes / 1024)} KB · {doc.chunk_count} chunks</span></div><span className={statusClass(doc.status)}>{statusLabel(doc.status)}</span></div>)}
-          </div>
-        </article>
-
-        <article className="panel evidence-panel">
-          <div className="section-head"><div><p className="eyebrow">EVIDENCE</p><h2>Relevant document preview</h2></div><button type="button" className="secondary" onClick={previewEvidence}>Refresh evidence</button></div>
-          {sources.length === 0 ? <p>Enter a research task and refresh evidence to preview matching document chunks.</p> : sources.map((source) => <div className="source-row" key={source.chunk_id}><div className="source-meta"><strong>{source.filename}</strong><span>Chunk {source.chunk_index + 1} · score {source.score}</span></div><p>{source.text.slice(0, 280)}{source.text.length > 280 ? "…" : ""}</p></div>)}
-        </article>
+        <article className="panel"><div className="section-head"><div><p className="eyebrow">DOCUMENTS</p><h2>Research sources</h2></div><span>{documents.length} uploaded</span></div><label className="upload-button">{uploading ? "Uploading…" : "Upload PDF / DOCX / TXT"}<input type="file" accept=".pdf,.docx,.txt" onChange={uploadDocument} disabled={uploading} hidden /></label><div className="document-list">{documents.length === 0 ? <p>No documents uploaded yet.</p> : documents.map((doc) => <div className="document-row" key={doc.id}><div><strong>{doc.filename}</strong><span>{Math.ceil(doc.size_bytes / 1024)} KB · {doc.chunk_count} chunks</span></div><span className={statusClass(doc.status)}>{statusLabel(doc.status)}</span></div>)}</div></article>
+        <article className="panel evidence-panel"><div className="section-head"><div><p className="eyebrow">EVIDENCE</p><h2>Relevant document preview</h2></div><button type="button" className="secondary" onClick={previewEvidence}>Refresh evidence</button></div>{sources.length === 0 ? <p>Enter a research task and refresh evidence to preview matching document chunks.</p> : sources.map((source) => <div className="source-row" key={source.chunk_id}><div className="source-meta"><strong>{source.filename}</strong><span>Chunk {source.chunk_index + 1} · score {source.score}</span></div><p>{source.text.slice(0, 280)}{source.text.length > 280 ? "…" : ""}</p></div>)}</article>
       </section>
 
-      <section className="panel">
-        <form onSubmit={startResearch}>
-          <label htmlFor="query">Research task</label>
-          <textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter a research question or document-analysis objective..." minLength={3} required />
-          <div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div>
-        </form>
-        {error && <p className="error">{error}</p>}
-      </section>
+      <section className="panel"><form onSubmit={startResearch}><label htmlFor="query">Research task</label><textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter a research question or document-analysis objective..." minLength={3} required /><div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div></form>{error && <p className="error">{error}</p>}</section>
 
       <section className="control-grid">
-        <article className="agent-card main-agent">
-          <div className="card-head"><p className="eyebrow">MAIN AGENT</p><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div>
-          <h2>Research Orchestrator</h2><p>Plans the task, assigns four workstreams, reviews evidence, resolves conflicts and produces the final synthesis.</p>
-          <div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div>
-        </article>
-
+        <article className="agent-card main-agent"><div className="card-head"><p className="eyebrow">MAIN AGENT</p><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div><h2>Research Orchestrator</h2><p>Plans the task, assigns four workstreams, reviews evidence, resolves conflicts and produces the final synthesis.</p><div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div></article>
         {modelEntries.filter(([slot]) => slot !== "main").map(([slot, model], index) => {
           const live = agentStates.find((agent) => agent.agent_id === slot);
           const evidence = live?.evidence_sources || [];
           const webCount = evidence.filter((item) => item.origin === "web").length;
           const docCount = evidence.filter((item) => item.origin === "document").length;
-          return <article className="agent-card" key={slot}>
-            <div className="card-head"><p className="eyebrow">RESEARCHER {index + 1}</p><span className={statusClass(live?.latest)}>{statusLabel(live?.latest || "ready")}</span></div>
-            <h2>{live?.title || `Research Agent ${index + 1}`}</h2><p>{live?.objective || "Dynamic research role assigned by the main orchestrator for each run."}</p>
-            <div className="meta-line"><span>Model</span><strong>{live?.result?.model_id || model || "Pending"}</strong></div>
-            {live?.message && <p className="live-message">{live.message}</p>}
-            {live && <p><strong>{evidence.length}</strong> evidence candidates · {docCount} document · {webCount} web</p>}
-            {live?.result && <p><strong>{live.result.findings.length}</strong> findings · <strong>{live.result.sources.length}</strong> cited sources</p>}
-            {live?.error && <p className="error">{live.error}</p>}
-          </article>;
+          const route = system?.web_agent_routing?.[slot];
+          return <article className="agent-card" key={slot}><div className="card-head"><p className="eyebrow">RESEARCHER {index + 1}</p><span className={statusClass(live?.latest)}>{statusLabel(live?.latest || "ready")}</span></div><h2>{live?.title || `Research Agent ${index + 1}`}</h2><p>{live?.objective || "Dynamic research role assigned by the main orchestrator for each run."}</p><div className="meta-line"><span>Search</span><strong>{route || webProviders}</strong></div><div className="meta-line"><span>Model</span><strong>{live?.result?.model_id || model || "Pending"}</strong></div>{live?.message && <p className="live-message">{live.message}</p>}{live && <p><strong>{evidence.length}</strong> evidence candidates · {docCount} document · {webCount} web</p>}{live?.result && <p><strong>{live.result.findings.length}</strong> findings · <strong>{live.result.sources.length}</strong> cited sources</p>}{live?.error && <p className="error">{live.error}</p>}</article>;
         })}
       </section>
 
-      {run && <>
-        <section className="summary panel"><div><span>Run</span><strong>{run.id}</strong></div><div><span>Status</span><strong>{run.status}</strong></div><div><span>Web sources</span><strong>{liveWebSources.length}</strong></div><div><span>Follow-ups</span><strong>{followUps.length}</strong></div></section>
-        {liveWebSources.length > 0 && <section className="panel timeline"><div className="section-head"><h2>Live web evidence</h2><span>{liveWebSources.length} sources</span></div>{liveWebSources.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{item.metadata?.provider || "web"}</strong><span>{item.agent_id}</span><p>{item.message}</p></div>)}</section>}
-        {run.final_answer && <section className="panel final-panel"><p className="eyebrow">MAIN SYNTHESIS</p><h2>Final research answer</h2><p className="final-answer">{run.final_answer}</p></section>}
-        <section className="panel timeline"><div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>{events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{statusLabel(item.type)}</strong><span>{item.agent_id || "orchestrator"}</span><p>{item.message}</p></div>)}</section>
-      </>}
+      {run && <><section className="summary panel"><div><span>Run</span><strong>{run.id}</strong></div><div><span>Status</span><strong>{run.status}</strong></div><div><span>Web sources</span><strong>{liveWebSources.length}</strong></div><div><span>Follow-ups</span><strong>{followUps.length}</strong></div></section>{liveWebSources.length > 0 && <section className="panel timeline"><div className="section-head"><h2>Live web evidence</h2><span>{liveWebSources.length} sources</span></div>{liveWebSources.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{item.metadata?.provider || "web"}</strong><span>{item.agent_id}</span><p>{item.message}</p></div>)}</section>}{run.final_answer && <section className="panel final-panel"><p className="eyebrow">MAIN SYNTHESIS</p><h2>Final research answer</h2><p className="final-answer">{run.final_answer}</p></section>}<section className="panel timeline"><div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>{events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{statusLabel(item.type)}</strong><span>{item.agent_id || "orchestrator"}</span><p>{item.message}</p></div>)}</section></>}
     </main>
   );
 }
