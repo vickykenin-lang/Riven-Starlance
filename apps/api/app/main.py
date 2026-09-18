@@ -10,10 +10,10 @@ from fastapi.responses import StreamingResponse
 from .events import event_bus
 from .models import CreateResearchRunRequest
 from .orchestrator import ResearchOrchestrator
-from .runtime import load_bedrock_runtime
+from .runtime import load_bedrock_runtime, runtime_status
 
 
-app = FastAPI(title="Riven-Starlance API", version="0.2.0")
+app = FastAPI(title="Riven-Starlance API", version="0.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -27,7 +27,12 @@ orchestrator = ResearchOrchestrator(event_bus)
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "riven-starlance-api", "version": "0.2.0"}
+    return {"status": "ok", "service": "riven-starlance-api", "version": "0.3.0"}
+
+
+@app.get("/api/system/status")
+async def system_status() -> dict[str, object]:
+    return runtime_status()
 
 
 @app.post("/api/runs")
