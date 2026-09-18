@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from .providers.bedrock import BedrockProvider
+from .web_research import load_web_research_adapter
 
 
 RESEARCHER_IDS = ("researcher-1", "researcher-2", "researcher-3", "researcher-4")
@@ -19,6 +20,7 @@ def runtime_status() -> dict[str, object]:
     }
     models = {slot: os.getenv(key) or None for slot, key in model_keys.items()}
     configured_slots = sum(1 for value in models.values() if value)
+    web_adapter = load_web_research_adapter()
     return {
         "provider": "aws-bedrock",
         "region": region,
@@ -26,6 +28,8 @@ def runtime_status() -> dict[str, object]:
         "required_slots": len(models),
         "models": models,
         "runtime_ready": configured_slots == len(models),
+        "web_research_provider": web_adapter.name,
+        "web_research_ready": web_adapter.enabled,
     }
 
 

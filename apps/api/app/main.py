@@ -12,9 +12,10 @@ from .events import event_bus
 from .models import CreateResearchRunRequest
 from .orchestrator import ResearchOrchestrator
 from .runtime import load_bedrock_runtime, runtime_status
+from .web_research import load_web_research_adapter
 
 
-app = FastAPI(title="Riven-Starlance API", version="0.4.0")
+app = FastAPI(title="Riven-Starlance API", version="0.5.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -23,12 +24,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-orchestrator = ResearchOrchestrator(event_bus, document_store=document_store)
+web_research = load_web_research_adapter()
+orchestrator = ResearchOrchestrator(event_bus, document_store=document_store, web_research=web_research)
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "riven-starlance-api", "version": "0.4.0"}
+    return {"status": "ok", "service": "riven-starlance-api", "version": "0.5.0"}
 
 
 @app.get("/api/system/status")
@@ -67,6 +69,18 @@ async def search_sources(q: str, limit: int = 8):
     if len(q.strip()) < 2:
         raise HTTPException(status_code=400, detail="Search query is too short")
     return document_store.retrieve(q, limit=max(1, min(limit, 20)))
+
+
+@app.get("/api/web/search")
+async def search_web(q: str, limit: int = 8):
+    if len(q.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Search query is too short")
+    if not web_research.enabled:
+        raise HTTPException(status_code=503, detail="Web research provider is not configured")
+    try:
+        return await web_research.search(q, limit=max(1, min(limit, 20)))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Web research failed: {type(exc).__name__}: {exc}") from exc
 
 
 @app.post("/api/runs")

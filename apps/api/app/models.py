@@ -47,10 +47,17 @@ class EventType(StrEnum):
 
 
 class EvidenceSource(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
     title: str
     url: str | None = None
     source_type: str = "unknown"
+    origin: str = "model"
+    provider: str | None = None
+    snippet: str | None = None
+    document_id: UUID | None = None
+    chunk_id: UUID | None = None
     is_primary: bool = False
+    retrieved_at: datetime | None = None
 
 
 class ResearchFinding(BaseModel):
@@ -78,6 +85,7 @@ class ResearchTask(BaseModel):
     title: str
     objective: str
     status: AgentStatus = AgentStatus.QUEUED
+    evidence_sources: list[EvidenceSource] = Field(default_factory=list)
     result: AgentResult | None = None
     error: str | None = None
 
