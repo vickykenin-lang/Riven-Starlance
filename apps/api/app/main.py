@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-orchestrator = ResearchOrchestrator(event_bus)
+orchestrator = ResearchOrchestrator(event_bus, document_store=document_store)
 
 
 @app.get("/health")
@@ -36,6 +36,7 @@ async def system_status() -> dict[str, object]:
     status = runtime_status()
     status["documents"] = len(document_store.list())
     status["document_layer_ready"] = True
+    status["document_persistence"] = "local-volume"
     return status
 
 
