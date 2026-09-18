@@ -113,40 +113,47 @@ export default function Home() {
 
   const modelEntries = Object.entries(system?.models || {});
   const webProviders = system?.web_research_providers?.join(" + ") || system?.web_research_provider || "Disabled";
+  const ready = Boolean(system?.runtime_ready && system?.web_research_ready);
 
   return (
     <main>
-      <header><div><p className="eyebrow">RIVEN-STARLANCE</p><h1>Research Control Center</h1><p>One orchestrator, four specialist research agents, diversified web search, unified evidence and real event tracking.</p></div><span className="badge">Execution v0.6</span></header>
+      <header className="hero">
+        <div>
+          <div className="brand-row"><span className="brand-mark">RS</span><p className="eyebrow">RIVEN-STARLANCE</p></div>
+          <h1>Research Control Center</h1>
+          <p className="hero-copy">One orchestrator, four specialist agents, live evidence collection and auditable synthesis in a single command center.</p>
+        </div>
+        <div className="hero-status"><span className={`live-dot ${ready ? "online" : "pending"}`}></span><span>{ready ? "SYSTEM ONLINE" : "SYSTEM CHECK"}</span><span className="badge">Execution v0.7</span></div>
+      </header>
 
       <section className="system-strip">
-        <div><span>Provider</span><strong>{system?.provider || "AWS Bedrock"}</strong></div>
+        <div><span>Provider</span><strong>{system?.provider || "checking"}</strong></div>
         <div><span>Region</span><strong>{system?.region || "ap-south-1"}</strong></div>
         <div><span>Model slots</span><strong>{system ? `${system.configured_slots}/${system.required_slots}` : "checking"}</strong></div>
         <div><span>Documents</span><strong>{documents.length}</strong></div>
         <div><span>Web research</span><strong className={system?.web_research_ready ? "good-text" : "warn-text"}>{system?.web_research_ready ? webProviders : "Disabled"}</strong></div>
-        <div><span>Runtime</span><strong className={system?.runtime_ready ? "good-text" : "warn-text"}>{system?.runtime_ready ? "Configured" : "Pending model mapping"}</strong></div>
+        <div><span>Runtime</span><strong className={system?.runtime_ready ? "good-text" : "warn-text"}>{system?.runtime_ready ? "Ready" : "Pending"}</strong></div>
       </section>
 
-      {!system?.runtime_ready && <section className="notice"><strong>Bedrock runtime not ready yet.</strong><span> Document and evidence layers are available, but all five model slots and AWS model authorization are required for a real multi-agent run.</span></section>}
-
-      {system?.web_research_provider === "multi-provider" && <section className="notice"><strong>Diversified web research active.</strong><span> Researchers 1/3 prefer Tavily; Researchers 2/4 prefer Exa, with automatic provider fallback.</span></section>}
+      {!system?.runtime_ready && <section className="notice"><strong>Model runtime pending.</strong><span> Configure all model slots and provider credentials before starting a real multi-agent run.</span></section>}
+      {system?.web_research_provider === "multi-provider" && <section className="notice success-notice"><strong>Diversified web research active.</strong><span> Researchers 1/3 prefer Tavily; Researchers 2/4 prefer Exa, with automatic provider fallback.</span></section>}
 
       <section className="workspace-grid">
         <article className="panel"><div className="section-head"><div><p className="eyebrow">DOCUMENTS</p><h2>Research sources</h2></div><span>{documents.length} uploaded</span></div><label className="upload-button">{uploading ? "Uploading…" : "Upload PDF / DOCX / TXT"}<input type="file" accept=".pdf,.docx,.txt" onChange={uploadDocument} disabled={uploading} hidden /></label><div className="document-list">{documents.length === 0 ? <p>No documents uploaded yet.</p> : documents.map((doc) => <div className="document-row" key={doc.id}><div><strong>{doc.filename}</strong><span>{Math.ceil(doc.size_bytes / 1024)} KB · {doc.chunk_count} chunks</span></div><span className={statusClass(doc.status)}>{statusLabel(doc.status)}</span></div>)}</div></article>
         <article className="panel evidence-panel"><div className="section-head"><div><p className="eyebrow">EVIDENCE</p><h2>Relevant document preview</h2></div><button type="button" className="secondary" onClick={previewEvidence}>Refresh evidence</button></div>{sources.length === 0 ? <p>Enter a research task and refresh evidence to preview matching document chunks.</p> : sources.map((source) => <div className="source-row" key={source.chunk_id}><div className="source-meta"><strong>{source.filename}</strong><span>Chunk {source.chunk_index + 1} · score {source.score}</span></div><p>{source.text.slice(0, 280)}{source.text.length > 280 ? "…" : ""}</p></div>)}</article>
       </section>
 
-      <section className="panel"><form onSubmit={startResearch}><label htmlFor="query">Research task</label><textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter a research question or document-analysis objective..." minLength={3} required /><div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div></form>{error && <p className="error">{error}</p>}</section>
+      <section className="panel command-panel"><form onSubmit={startResearch}><div className="section-head"><div><p className="eyebrow">NEW MISSION</p><h2>Launch a research run</h2></div><span className="command-hint">Live SSE telemetry enabled</span></div><label htmlFor="query">Research task</label><textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask a research question, compare evidence, or analyze uploaded documents..." minLength={3} required /><div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div></form>{error && <p className="error">{error}</p>}</section>
 
       <section className="control-grid">
-        <article className="agent-card main-agent"><div className="card-head"><p className="eyebrow">MAIN AGENT</p><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div><h2>Research Orchestrator</h2><p>Plans the task, assigns four workstreams, reviews evidence, resolves conflicts and produces the final synthesis.</p><div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div></article>
+        <article className="agent-card main-agent"><div className="card-head"><div><p className="eyebrow">MAIN AGENT</p><h2>Research Orchestrator</h2></div><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div><p>Plans the mission, assigns four workstreams, reviews evidence quality, resolves conflicts and produces the final synthesis.</p><div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div></article>
         {modelEntries.filter(([slot]) => slot !== "main").map(([slot, model], index) => {
           const live = agentStates.find((agent) => agent.agent_id === slot);
           const evidence = live?.evidence_sources || [];
           const webCount = evidence.filter((item) => item.origin === "web").length;
           const docCount = evidence.filter((item) => item.origin === "document").length;
           const route = system?.web_agent_routing?.[slot];
-          return <article className="agent-card" key={slot}><div className="card-head"><p className="eyebrow">RESEARCHER {index + 1}</p><span className={statusClass(live?.latest)}>{statusLabel(live?.latest || "ready")}</span></div><h2>{live?.title || `Research Agent ${index + 1}`}</h2><p>{live?.objective || "Dynamic research role assigned by the main orchestrator for each run."}</p><div className="meta-line"><span>Search</span><strong>{route || webProviders}</strong></div><div className="meta-line"><span>Model</span><strong>{live?.result?.model_id || model || "Pending"}</strong></div>{live?.message && <p className="live-message">{live.message}</p>}{live && <p><strong>{evidence.length}</strong> evidence candidates · {docCount} document · {webCount} web</p>}{live?.result && <p><strong>{live.result.findings.length}</strong> findings · <strong>{live.result.sources.length}</strong> cited sources</p>}{live?.error && <p className="error">{live.error}</p>}</article>;
+          return <article className="agent-card" key={slot}><div className="card-head"><div><p className="eyebrow">RESEARCHER {index + 1}</p><h2>{live?.title || `Research Agent ${index + 1}`}</h2></div><span className={statusClass(live?.latest)}>{statusLabel(live?.latest || "ready")}</span></div><p>{live?.objective || "Dynamic research role assigned by the main orchestrator for each run."}</p><div className="meta-line"><span>Search</span><strong>{route || webProviders}</strong></div><div className="meta-line"><span>Model</span><strong>{live?.result?.model_id || model || "Pending"}</strong></div>{live?.message && <p className="live-message">{live.message}</p>}{live && <p className="agent-counts"><strong>{evidence.length}</strong> evidence · {docCount} document · {webCount} web</p>}{live?.result && <p className="agent-counts"><strong>{live.result.findings.length}</strong> findings · <strong>{live.result.sources.length}</strong> cited sources</p>}{live?.error && <p className="error">{live.error}</p>}</article>;
         })}
       </section>
 
