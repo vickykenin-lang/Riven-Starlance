@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import re
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -16,6 +18,7 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 SUPPORTED_SUFFIXES = {".pdf", ".docx", ".txt"}
 CHUNK_SIZE = 1800
 CHUNK_OVERLAP = 250
+DEFAULT_DATA_DIR = Path(os.getenv("RIVEN_DATA_DIR", "/tmp/riven-data"))
 
 
 class DocumentStatus(StrEnum):
@@ -40,6 +43,7 @@ class ResearchDocument(BaseModel):
     char_count: int = 0
     chunk_count: int = 0
     error: str | None = None
+    stored_path: str | None = None
 
 
 class SourceContext(BaseModel):
@@ -52,9 +56,41 @@ class SourceContext(BaseModel):
 
 
 class DocumentStore:
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path | str = DEFAULT_DATA_DIR) -> None:
+        self.data_dir = Path(data_dir)
+        self.files_dir = self.data_dir / "files"
+        self.registry_path = self.data_dir / "registry.json"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.files_dir.mkdir(parents=True, exist_ok=True)
         self._documents: dict[UUID, ResearchDocument] = {}
         self._chunks: dict[UUID, list[DocumentChunk]] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.registry_path.exists():
+            return
+        try:
+            payload = json.loads(self.registry_path.read_text(encoding="utf-8"))
+            for raw in payload.get("documents", []):
+                item = ResearchDocument.model_validate(raw)
+                self._documents[item.id] = item
+            for document_id, raw_chunks in payload.get("chunks", {}).items():
+                self._chunks[UUID(document_id)] = [DocumentChunk.model_validate(chunk) for chunk in raw_chunks]
+        except Exception:
+            self._documents = {}
+            self._chunks = {}
+
+    def _persist(self) -> None:
+        payload = {
+            "documents": [item.model_dump(mode="json") for item in self._documents.values()],
+            "chunks": {
+                str(document_id): [chunk.model_dump(mode="json") for chunk in chunks]
+                for document_id, chunks in self._chunks.items()
+            },
+        }
+        temp_path = self.registry_path.with_suffix(".tmp")
+        temp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        temp_path.replace(self.registry_path)
 
     def list(self) -> list[ResearchDocument]:
         return sorted(self._documents.values(), key=lambda item: item.uploaded_at, reverse=True)
@@ -79,6 +115,11 @@ class DocumentStore:
             size_bytes=len(payload),
             status=DocumentStatus.PARSED,
         )
+        safe_name = f"{item.id}{suffix}"
+        stored_path = self.files_dir / safe_name
+        stored_path.write_bytes(payload)
+        item.stored_path = str(stored_path)
+
         try:
             text = extract_text(suffix, payload)
             if not text.strip():
@@ -87,11 +128,12 @@ class DocumentStore:
             item.char_count = len(text)
             item.chunk_count = len(chunks)
             self._chunks[item.id] = chunks
-        except Exception as exc:  # keep upload record visible for troubleshooting
+        except Exception as exc:
             item.status = DocumentStatus.FAILED
             item.error = str(exc)
             self._chunks[item.id] = []
         self._documents[item.id] = item
+        self._persist()
         return item
 
     def retrieve(self, query: str, *, limit: int = 8) -> list[SourceContext]:
