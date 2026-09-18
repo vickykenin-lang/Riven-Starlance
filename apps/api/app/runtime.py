@@ -15,11 +15,16 @@ MODEL_KEYS = {
     "researcher-3": "RIVEN_MODEL_RESEARCHER_3",
     "researcher-4": "RIVEN_MODEL_RESEARCHER_4",
 }
+
+# Production-safe defaults are limited to models that have already completed a real
+# Riven specialist run successfully through Bedrock Mantle. Other discovered Mantle
+# models remain available through explicit RIVEN_MODEL_* overrides and should only be
+# promoted to defaults after their structured-output compatibility is live verified.
 DEFAULT_MANTLE_MODELS = {
     "main": "qwen.qwen3-coder-next",
     "researcher-1": "qwen.qwen3-coder-next",
-    "researcher-2": "deepseek.v3.2",
-    "researcher-3": "moonshotai.kimi-k2-thinking",
+    "researcher-2": "qwen.qwen3-coder-next",
+    "researcher-3": "qwen.qwen3-coder-next",
     "researcher-4": "openai.gpt-oss-120b",
 }
 
