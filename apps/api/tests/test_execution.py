@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+from app.documents import DocumentStore
 from app.events import EventBus
 from app.models import AgentStatus, RunStatus
 from app.orchestrator import ResearchOrchestrator
@@ -8,7 +9,11 @@ from app.providers.base import ModelProvider, ModelRequest, ModelResponse
 
 
 class FakeProvider(ModelProvider):
+    def __init__(self) -> None:
+        self.requests: list[ModelRequest] = []
+
     async def invoke(self, request: ModelRequest) -> ModelResponse:
+        self.requests.append(request)
         await asyncio.sleep(0.01)
         if request.system_prompt.startswith("You are the lead research orchestrator"):
             text = "Final synthesis based on four specialist reports."
@@ -66,5 +71,31 @@ def test_parallel_execution_and_main_synthesis():
         assert event_types.count("agent.completed") == 4
         assert "review.started" in event_types
         assert "run.completed" in event_types
+
+    asyncio.run(scenario())
+
+
+def test_uploaded_document_context_is_bound_to_agent_prompts(tmp_path):
+    async def scenario():
+        store = DocumentStore(tmp_path)
+        store.add(
+            "commissioning.txt",
+            "text/plain",
+            b"Fire safety commissioning is pending and requires authority approval before handover.",
+        )
+        bus = EventBus()
+        orchestrator = ResearchOrchestrator(bus, document_store=store)
+        run = await orchestrator.create_run("Assess fire safety commissioning risk")
+        provider = FakeProvider()
+        providers = {task.agent_id: provider for task in run.tasks}
+        models = {task.agent_id: "test-model" for task in run.tasks}
+
+        await orchestrator.execute_run(run.id, providers=providers, model_ids=models)
+
+        agent_requests = [request for request in provider.requests if not request.system_prompt.startswith("You are the lead research orchestrator")]
+        assert len(agent_requests) == 4
+        assert any("Document evidence available" in request.user_prompt for request in agent_requests)
+        assert any("commissioning.txt" in request.user_prompt for request in agent_requests)
+        assert any("authority approval" in request.user_prompt for request in agent_requests)
 
     asyncio.run(scenario())
