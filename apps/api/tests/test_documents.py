@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
+from app.documents import DocumentStore
 from app.main import app
 
 
@@ -37,9 +40,30 @@ def test_unsupported_upload_is_rejected() -> None:
     assert "Unsupported document type" in response.json()["detail"]
 
 
+def test_document_store_survives_reinitialization(tmp_path: Path) -> None:
+    first = DocumentStore(tmp_path)
+    document = first.add(
+        "persistent.txt",
+        "text/plain",
+        b"Restart-safe evidence about concrete testing and commissioning.",
+    )
+    assert document.status == "parsed"
+    assert document.stored_path is not None
+    assert Path(document.stored_path).exists()
+
+    second = DocumentStore(tmp_path)
+    restored = second.get(document.id)
+    assert restored is not None
+    assert restored.filename == "persistent.txt"
+    matches = second.retrieve("testing commissioning")
+    assert matches
+    assert matches[0].document_id == document.id
+
+
 def test_system_status_exposes_document_layer() -> None:
     response = client.get("/api/system/status")
     assert response.status_code == 200
     body = response.json()
     assert body["document_layer_ready"] is True
+    assert body["document_persistence"] == "local-volume"
     assert isinstance(body["documents"], int)
