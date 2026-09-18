@@ -12,7 +12,7 @@ def _clear_models(monkeypatch):
         monkeypatch.delenv(key, raising=False)
 
 
-def test_mantle_runtime_uses_verified_default_model_map(monkeypatch):
+def test_mantle_runtime_uses_live_verified_default_model_map(monkeypatch):
     monkeypatch.setenv("RIVEN_AWS_REGION", "ap-south-1")
     monkeypatch.setenv("RIVEN_MODEL_PROVIDER", "mantle")
     monkeypatch.delenv("RIVEN_MANTLE_API_KEY", raising=False)
@@ -27,8 +27,9 @@ def test_mantle_runtime_uses_verified_default_model_map(monkeypatch):
     assert status["runtime_ready"] is False
     assert status["provider_credential_present"] is False
     assert status["models"]["main"] == "qwen.qwen3-coder-next"
-    assert status["models"]["researcher-2"] == "deepseek.v3.2"
-    assert status["models"]["researcher-3"] == "moonshotai.kimi-k2-thinking"
+    assert status["models"]["researcher-1"] == "qwen.qwen3-coder-next"
+    assert status["models"]["researcher-2"] == "qwen.qwen3-coder-next"
+    assert status["models"]["researcher-3"] == "qwen.qwen3-coder-next"
     assert status["models"]["researcher-4"] == "openai.gpt-oss-120b"
 
 
@@ -47,11 +48,13 @@ def test_mantle_runtime_ready_when_key_is_present(monkeypatch):
 def test_explicit_model_override_wins(monkeypatch):
     monkeypatch.setenv("RIVEN_MODEL_PROVIDER", "mantle")
     monkeypatch.setenv("RIVEN_MANTLE_API_KEY", "test-key")
-    monkeypatch.setenv("RIVEN_MODEL_RESEARCHER_4", "custom-model")
+    monkeypatch.setenv("RIVEN_MODEL_RESEARCHER_2", "deepseek.v3.2")
+    monkeypatch.setenv("RIVEN_MODEL_RESEARCHER_3", "moonshotai.kimi-k2-thinking")
 
     status = runtime_status()
 
-    assert status["models"]["researcher-4"] == "custom-model"
+    assert status["models"]["researcher-2"] == "deepseek.v3.2"
+    assert status["models"]["researcher-3"] == "moonshotai.kimi-k2-thinking"
 
 
 def test_native_bedrock_still_supported(monkeypatch):
