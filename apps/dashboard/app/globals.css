@@ -126,3 +126,29 @@ button:disabled { opacity: .55; cursor: wait; }
   .system-strip div, .summary div { border-right: 0; border-bottom: 1px solid rgba(75, 98, 136, .26); }
   .system-strip div:last-child, .summary div:last-child { border-bottom: 0; }
 }
+
+
+/* Live research office */
+.research-office { align-items: stretch; }
+.reviewer-desk { min-height: 178px; padding-left: 118px; overflow: hidden; }
+.office-scene { position: absolute; left: 22px; top: 20px; width: 78px; height: 88px; display: grid; place-items: center; }
+.agent-avatar, .reviewer-avatar { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 16px 16px 12px 12px; color: #07121c; font-weight: 950; letter-spacing: .04em; position: relative; z-index: 2; box-shadow: 0 10px 28px rgba(0,0,0,.24); }
+.agent-avatar { background: linear-gradient(145deg, #fef3c7, #f59e0b); }
+.reviewer-avatar { width: 62px; height: 62px; border-radius: 22px; background: linear-gradient(145deg, #e0f2fe, #38bdf8 55%, #2563eb); color: white; font-size: 22px; }
+.office-scene::after { content: ""; position: absolute; width: 72px; height: 13px; bottom: 7px; border-radius: 8px; background: linear-gradient(90deg, #1e293b, #475569); box-shadow: 0 9px 0 #0f172a; }
+.desk-screen { position: absolute; top: 38px; right: 2px; width: 29px; height: 21px; border: 3px solid #94a3b8; border-radius: 4px; background: #0b1c32; box-shadow: inset 0 0 12px #22d3ee; }
+.desk-light { position: absolute; top: 17px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 14px #22c55e; animation: office-pulse 1.6s infinite; }
+.reviewer-label { position: absolute; top: 70px; width: 110px; text-align: center; color: #9fdcff; font-size: 10px; font-weight: 800; letter-spacing: .05em; z-index: 3; }
+.researcher-desk { min-height: 245px; padding-left: 116px; }
+.researcher-desk.desk-1 { border-color: rgba(251,146,60,.55); background: linear-gradient(145deg, rgba(86,42,18,.88), rgba(25,19,26,.92)); }
+.researcher-desk.desk-2 { border-color: rgba(168,85,247,.55); background: linear-gradient(145deg, rgba(57,26,84,.88), rgba(20,18,42,.92)); }
+.researcher-desk.desk-3 { border-color: rgba(45,212,191,.55); background: linear-gradient(145deg, rgba(10,69,66,.88), rgba(12,27,38,.92)); }
+.researcher-desk.desk-4 { border-color: rgba(236,72,153,.55); background: linear-gradient(145deg, rgba(88,22,56,.88), rgba(30,18,35,.92)); }
+.researcher-desk.desk-2 .agent-avatar { background: linear-gradient(145deg, #f3e8ff, #a855f7); }
+.researcher-desk.desk-3 .agent-avatar { background: linear-gradient(145deg, #ccfbf1, #14b8a6); }
+.researcher-desk.desk-4 .agent-avatar { background: linear-gradient(145deg, #fce7f3, #ec4899); }
+.agent-card:has(.status.active) .desk-light { background: #facc15; box-shadow: 0 0 18px #facc15; }
+.agent-card:has(.status.good) .desk-light { background: #22c55e; box-shadow: 0 0 18px #22c55e; animation: none; }
+.agent-card:has(.status.bad) .desk-light { background: #fb7185; box-shadow: 0 0 18px #fb7185; animation: none; }
+@keyframes office-pulse { 50% { transform: scale(1.35); opacity: .55; } }
+@media (max-width: 760px) { .reviewer-desk, .researcher-desk { padding-left: 100px; } .office-scene { left: 13px; transform: scale(.82); transform-origin: top left; } }
