@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from .documents import DocumentStore
 from .events import EventBus
 from .models import AgentEvent, AgentResult, AgentStatus, EvidenceSource, EventType, ResearchRun, ResearchTask, RunStatus
-from .providers.base import ModelProvider, ModelRequest
+from .providers.base import ModelProvider, ModelRequest, ModelResponse
 from .web_research import DisabledWebResearchAdapter, WebResearchAdapter, WebSource
 
 
@@ -36,6 +36,10 @@ Never invent sources. Use only evidence candidates supplied in the prompt or exp
 MAIN_SYSTEM_PROMPT = """You are the lead research orchestrator for Riven-Starlance.
 Assess all specialist reports and their collected evidence sources. Reconcile contradictions by evidence quality rather than majority vote, identify unresolved uncertainty, and produce a concise evidence-grounded final answer. Never invent citations or claims. Clearly distinguish established findings from uncertainty. Consider source diversity and avoid treating repeated evidence from the same domain as independent corroboration.
 """
+
+
+class StructuredOutputError(RuntimeError):
+    pass
 
 
 class ResearchOrchestrator:
@@ -152,6 +156,56 @@ class ResearchOrchestrator:
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.SOURCE_FOUND, message=f"Web source found: {source.title}", metadata={"origin": "web", "provider": source.provider, "url": source.url, "domain": source.domain or ""}))
         return blocks
 
+    async def _invoke_structured(
+        self,
+        run: ResearchRun,
+        task: ResearchTask,
+        provider: ModelProvider,
+        model_id: str,
+        user_prompt: str,
+        *,
+        stage: str,
+    ) -> tuple[ModelResponse, AgentResult]:
+        response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=user_prompt, model_id=model_id))
+        try:
+            return response, AgentResult.model_validate(json.loads(response.text))
+        except (json.JSONDecodeError, ValidationError) as first_exc:
+            await self._event_bus.publish(
+                AgentEvent(
+                    run_id=run.id,
+                    agent_id=task.agent_id,
+                    type=EventType.AGENT_VERIFYING,
+                    message="Structured output invalid; requesting one repair attempt.",
+                    metadata={
+                        "stage": stage,
+                        "first_error": f"{type(first_exc).__name__}: {first_exc}",
+                        "response_length": len(response.text),
+                    },
+                )
+            )
+
+            repair_prompt = (
+                f"{user_prompt}\n\n"
+                "Your previous response was invalid JSON and could not be parsed. "
+                "Repair it and return one complete JSON object only, matching the required schema exactly. "
+                "Do not add markdown fences, commentary, prefixes, or suffixes.\n\n"
+                "Previous invalid response:\n"
+                f"{response.text}"
+            )
+            repaired = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=repair_prompt, model_id=model_id))
+            try:
+                parsed = AgentResult.model_validate(json.loads(repaired.text))
+            except (json.JSONDecodeError, ValidationError) as second_exc:
+                raise StructuredOutputError(
+                    "Structured output invalid after one repair attempt: "
+                    f"first={type(first_exc).__name__}: {first_exc}; "
+                    f"second={type(second_exc).__name__}: {second_exc}"
+                ) from second_exc
+
+            repaired.input_tokens = (response.input_tokens or 0) + (repaired.input_tokens or 0)
+            repaired.output_tokens = (response.output_tokens or 0) + (repaired.output_tokens or 0)
+            return repaired, parsed
+
     async def _execute_task(self, run: ResearchRun, task: ResearchTask, provider: ModelProvider | None, model_id: str | None) -> None:
         if provider is None or model_id is None:
             await self._fail_task(run, task, "Provider or model is not configured for this agent.")
@@ -162,8 +216,14 @@ class ResearchOrchestrator:
             evidence_context = await self._collect_evidence(run, task)
             strategy = SEARCH_STRATEGIES.get(task.agent_id, "")
             base_prompt = f"Research question: {run.query}\n\nWorkstream: {task.title}\nObjective: {task.objective}\nResearch strategy: {strategy}{evidence_context}"
-            response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=base_prompt, model_id=model_id))
-            parsed = AgentResult.model_validate(json.loads(response.text))
+            response, parsed = await self._invoke_structured(
+                run,
+                task,
+                provider,
+                model_id,
+                base_prompt,
+                stage="initial",
+            )
 
             if self._web_research.enabled and (parsed.uncertainties or parsed.contradictions):
                 gap = (parsed.uncertainties or parsed.contradictions)[0]
@@ -179,10 +239,17 @@ class ResearchOrchestrator:
                         "Additional follow-up evidence:\n" + "\n\n".join(follow_blocks) +
                         "\n\nReturn a complete revised JSON report. Preserve unresolved uncertainty if the new evidence does not resolve it."
                     )
-                    follow_response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=follow_prompt, model_id=model_id))
-                    parsed = AgentResult.model_validate(json.loads(follow_response.text))
-                    response.input_tokens = (response.input_tokens or 0) + (follow_response.input_tokens or 0)
-                    response.output_tokens = (response.output_tokens or 0) + (follow_response.output_tokens or 0)
+                    follow_response, parsed = await self._invoke_structured(
+                        run,
+                        task,
+                        provider,
+                        model_id,
+                        follow_prompt,
+                        stage="follow-up",
+                    )
+                    follow_response.input_tokens = (response.input_tokens or 0) + (follow_response.input_tokens or 0)
+                    follow_response.output_tokens = (response.output_tokens or 0) + (follow_response.output_tokens or 0)
+                    response = follow_response
 
             task.status = AgentStatus.VERIFYING
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_VERIFYING, message="Model response received; validating structured evidence."))
@@ -193,8 +260,8 @@ class ResearchOrchestrator:
             task.result = parsed
             task.status = AgentStatus.SUBMITTED
             await self._event_bus.publish(AgentEvent(run_id=run.id, agent_id=task.agent_id, type=EventType.AGENT_COMPLETED, message=f"{task.title} submitted structured findings.", metadata={"findings": len(parsed.findings), "sources": len(parsed.sources), "evidence_candidates": len(task.evidence_sources), "contradictions": len(parsed.contradictions), "uncertainties": len(parsed.uncertainties)}))
-        except (json.JSONDecodeError, ValidationError) as exc:
-            await self._fail_task(run, task, f"Structured output invalid: {exc}")
+        except StructuredOutputError as exc:
+            await self._fail_task(run, task, str(exc))
         except Exception as exc:
             await self._fail_task(run, task, f"{type(exc).__name__}: {exc}")
 

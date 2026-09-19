@@ -9,6 +9,29 @@ from app.providers.base import ModelProvider, ModelRequest, ModelResponse
 from app.web_research import WebResearchAdapter, WebSource
 
 
+VALID_RESULT = {
+    "summary": "Evidence-backed test summary",
+    "findings": [
+        {
+            "claim": "Test claim",
+            "evidence": "Test evidence",
+            "source_refs": [0],
+            "confidence": 0.9,
+        }
+    ],
+    "sources": [
+        {
+            "title": "Test source",
+            "url": "https://example.com/source",
+            "source_type": "primary",
+            "is_primary": True,
+        }
+    ],
+    "contradictions": [],
+    "uncertainties": [],
+}
+
+
 class FakeProvider(ModelProvider):
     def __init__(self, with_gap: bool = False) -> None:
         self.requests: list[ModelRequest] = []
@@ -21,29 +44,24 @@ class FakeProvider(ModelProvider):
             text = "Final synthesis based on four specialist reports."
         else:
             has_follow_up = "Additional follow-up evidence" in request.user_prompt
-            text = json.dumps(
-                {
-                    "summary": "Evidence-backed test summary",
-                    "findings": [
-                        {
-                            "claim": "Test claim",
-                            "evidence": "Test evidence",
-                            "source_refs": [0],
-                            "confidence": 0.9,
-                        }
-                    ],
-                    "sources": [
-                        {
-                            "title": "Test source",
-                            "url": "https://example.com/source",
-                            "source_type": "primary",
-                            "is_primary": True,
-                        }
-                    ],
-                    "contradictions": [],
-                    "uncertainties": [] if not self.with_gap or has_follow_up else ["Need an independent authority source"],
-                }
-            )
+            payload = dict(VALID_RESULT)
+            payload["uncertainties"] = [] if not self.with_gap or has_follow_up else ["Need an independent authority source"]
+            text = json.dumps(payload)
+        return ModelResponse(text=text, provider="fake", model_id=request.model_id, input_tokens=10, output_tokens=20)
+
+
+class FlakyStructuredProvider(ModelProvider):
+    def __init__(self, recover_on_retry: bool = True) -> None:
+        self.requests: list[ModelRequest] = []
+        self.recover_on_retry = recover_on_retry
+
+    async def invoke(self, request: ModelRequest) -> ModelResponse:
+        self.requests.append(request)
+        is_repair = "Previous invalid response" in request.user_prompt
+        if not is_repair or not self.recover_on_retry:
+            text = '{"summary":"truncated"'
+        else:
+            text = json.dumps(VALID_RESULT)
         return ModelResponse(text=text, provider="fake", model_id=request.model_id, input_tokens=10, output_tokens=20)
 
 
@@ -148,5 +166,44 @@ def test_web_sources_are_bound_and_follow_up_loop_runs():
         assert agent_ids == {"researcher-1", "researcher-2", "researcher-3", "researcher-4"}
         assert any("official documentation" in query for query, agent_id in web.queries if agent_id == "researcher-1")
         assert any("contradictions" in query for query, agent_id in web.queries if agent_id == "researcher-3")
+
+    asyncio.run(scenario())
+
+
+def test_invalid_structured_output_is_repaired_once():
+    async def scenario():
+        bus = EventBus()
+        orchestrator = ResearchOrchestrator(bus)
+        run = await orchestrator.create_run("Assess intermittent structured output")
+        providers = {task.agent_id: FlakyStructuredProvider(recover_on_retry=True) for task in run.tasks}
+        models = {task.agent_id: "test-model" for task in run.tasks}
+
+        completed = await orchestrator.execute_run(run.id, providers=providers, model_ids=models)
+
+        assert all(task.status == AgentStatus.SUBMITTED for task in completed.tasks)
+        assert all(task.result is not None for task in completed.tasks)
+        assert all(len(provider.requests) == 2 for provider in providers.values())
+        history = bus.history(completed.id)
+        repair_events = [event for event in history if event.message == "Structured output invalid; requesting one repair attempt."]
+        assert len(repair_events) == 4
+        assert all(event.metadata.get("stage") == "initial" for event in repair_events)
+
+    asyncio.run(scenario())
+
+
+def test_invalid_structured_output_fails_after_single_repair_attempt():
+    async def scenario():
+        bus = EventBus()
+        orchestrator = ResearchOrchestrator(bus)
+        run = await orchestrator.create_run("Assess persistent malformed output")
+        providers = {task.agent_id: FlakyStructuredProvider(recover_on_retry=False) for task in run.tasks}
+        models = {task.agent_id: "test-model" for task in run.tasks}
+
+        completed = await orchestrator.execute_run(run.id, providers=providers, model_ids=models)
+
+        assert completed.status == RunStatus.FAILED
+        assert all(task.status == AgentStatus.FAILED for task in completed.tasks)
+        assert all("after one repair attempt" in (task.error or "") for task in completed.tasks)
+        assert all(len(provider.requests) == 2 for provider in providers.values())
 
     asyncio.run(scenario())
