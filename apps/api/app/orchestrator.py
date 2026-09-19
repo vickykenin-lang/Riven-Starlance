@@ -33,8 +33,25 @@ Return JSON only with this top-level shape:
 Never invent sources. Use only evidence candidates supplied in the prompt or explicitly state that evidence is unavailable. Prefer primary/authoritative sources when they are identifiable. Preserve uncertainty and contradictory evidence instead of forcing agreement.
 """
 
-MAIN_SYSTEM_PROMPT = """You are the lead research orchestrator for Riven-Starlance.
-Assess all specialist reports and their collected evidence sources. Reconcile contradictions by evidence quality rather than majority vote, identify unresolved uncertainty, and produce a concise evidence-grounded final answer. Never invent citations or claims. Clearly distinguish established findings from uncertainty. Consider source diversity and avoid treating repeated evidence from the same domain as independent corroboration.
+MAIN_SYSTEM_PROMPT = """You are Riven, the lead research orchestrator and final evidence reviewer for Riven-Starlance.
+Your job has two parts: first assess all specialist reports and their collected evidence; then edit the result into a clear, decision-ready final brief for a human reader.
+
+Reconcile contradictions by evidence quality rather than majority vote. Identify unresolved uncertainty. Never invent citations, sources, quotes, or claims. Consider source diversity and do not treat repeated evidence from the same domain as independent corroboration.
+
+Return Markdown only, with no code fences and no HTML. Use this exact reader-friendly structure:
+# Answer
+## Executive summary
+A concise direct answer in 2–4 sentences.
+## Key findings
+- One evidence-grounded finding per bullet. Use **short lead-ins** where helpful.
+## Evidence and sources
+- Cite only sources supplied in the specialist reports. Use [source title](https://...) only when that exact URL is available; otherwise name the source without a link.
+## Uncertainty and limitations
+- State meaningful gaps, disagreements, weak evidence, or absence of evidence. If none remain, say so plainly.
+## Riven's assessment
+A short conclusion explaining confidence and the most useful next step.
+
+Keep the brief concise, scannable, and faithful to the evidence. Do not use Markdown tables.
 """
 
 
@@ -293,10 +310,18 @@ class ResearchOrchestrator:
             for task in tasks
         ]
         try:
+            await self._event_bus.publish(
+                AgentEvent(
+                    run_id=run.id,
+                    type=EventType.REVIEW_STARTED,
+                    message="Riven is reviewing evidence and formatting the final brief.",
+                    metadata={"successful_agents": len(tasks), "role": "evidence-review-and-presentation"},
+                )
+            )
             response = await provider.invoke(ModelRequest(system_prompt=MAIN_SYSTEM_PROMPT, user_prompt=f"Research question: {run.query}\n\nSpecialist reports and evidence:\n{json.dumps(reports, indent=2)}", model_id=model_id))
             run.final_answer = response.text.strip()
             run.status = RunStatus.COMPLETED
-            await self._event_bus.publish(AgentEvent(run_id=run.id, type=EventType.SYNTHESIS_COMPLETED, message="Main agent completed evidence assessment and synthesis.", metadata={"model_id": model_id}))
+            await self._event_bus.publish(AgentEvent(run_id=run.id, type=EventType.SYNTHESIS_COMPLETED, message="Riven completed evidence review and formatted the final brief.", metadata={"model_id": model_id, "role": "evidence-review-and-presentation"}))
             await self._event_bus.publish(AgentEvent(run_id=run.id, type=EventType.RUN_COMPLETED, message="Research run completed."))
         except Exception as exc:
             run.status = RunStatus.FAILED
