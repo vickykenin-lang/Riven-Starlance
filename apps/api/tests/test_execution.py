@@ -215,7 +215,7 @@ class FencedStructuredProvider(FakeProvider):
         if request.system_prompt.startswith("You are the lead research orchestrator"):
             return response
         return ModelResponse(
-            text=```\`\`\`json\n${response.text}\n\`\`\```,
+            text="```json\n" + response.text + "\n```",
             provider=response.provider,
             model_id=response.model_id,
             input_tokens=response.input_tokens,
@@ -250,5 +250,5 @@ def test_fenced_initial_and_follow_up_specialist_responses_are_accepted():
 
 
 def test_malformed_fenced_json_still_uses_existing_single_repair_attempt():
-    malformed = "```json\n{"summary":\n```"
+    malformed = "```json\n{\"summary\":\n```"
     assert _normalize_structured_json(malformed) == malformed
