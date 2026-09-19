@@ -4,7 +4,7 @@ import json
 from app.documents import DocumentStore
 from app.events import EventBus
 from app.models import AgentStatus, RunStatus
-from app.orchestrator import ResearchOrchestrator
+from app.orchestrator import ResearchOrchestrator, _normalize_structured_json
 from app.providers.base import ModelProvider, ModelRequest, ModelResponse
 from app.web_research import WebResearchAdapter, WebSource
 
@@ -207,3 +207,53 @@ def test_invalid_structured_output_fails_after_single_repair_attempt():
         assert all(len(provider.requests) == 2 for provider in providers.values())
 
     asyncio.run(scenario())
+
+
+class FencedStructuredProvider(FakeProvider):
+    async def invoke(self, request: ModelRequest) -> ModelResponse:
+        response = await super().invoke(request)
+        if request.system_prompt.startswith("You are the lead research orchestrator"):
+            return response
+        return ModelResponse(
+            text="```json\n" + response.text + "\n```",
+            provider=response.provider,
+            model_id=response.model_id,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+        )
+
+
+def test_structured_json_normalization_accepts_plain_and_fenced_json():
+    plain = json.dumps(VALID_RESULT)
+    assert _normalize_structured_json(plain) == plain
+    assert json.loads(_normalize_structured_json("```json\n" + plain + "\n```")) == VALID_RESULT
+    assert json.loads(_normalize_structured_json("```\n" + plain + "\n```")) == VALID_RESULT
+
+
+def test_fenced_initial_and_follow_up_specialist_responses_are_accepted():
+    async def scenario():
+        bus = EventBus()
+        web = FakeWebResearch()
+        orchestrator = ResearchOrchestrator(bus, web_research=web)
+        run = await orchestrator.create_run("Assess fenced structured output")
+        provider = FencedStructuredProvider(with_gap=True)
+        providers = {task.agent_id: provider for task in run.tasks}
+        models = {task.agent_id: "test-model" for task in run.tasks}
+
+        completed = await orchestrator.execute_run(run.id, providers=providers, model_ids=models)
+
+        assert all(task.status == AgentStatus.SUBMITTED for task in completed.tasks)
+        specialist_requests = [request for request in provider.requests if not request.system_prompt.startswith("You are the lead research orchestrator")]
+        assert sum("Additional follow-up evidence" in request.user_prompt for request in specialist_requests) == 4
+
+    asyncio.run(scenario())
+
+
+def test_malformed_fenced_json_still_uses_existing_single_repair_attempt():
+    malformed = "```json\n{\"summary\":\n```"
+    try:
+        json.loads(_normalize_structured_json(malformed))
+    except json.JSONDecodeError:
+        pass
+    else:
+        raise AssertionError("Malformed fenced JSON must reach the existing repair path")

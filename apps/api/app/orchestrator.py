@@ -42,6 +42,22 @@ class StructuredOutputError(RuntimeError):
     pass
 
 
+def _normalize_structured_json(text: str) -> str:
+    stripped = text.strip()
+    if not stripped.startswith("```") or not stripped.endswith("```"):
+        return text
+
+    first_newline = stripped.find("\n")
+    if first_newline == -1:
+        return text
+
+    fence_language = stripped[3:first_newline].strip().lower()
+    if fence_language not in {"", "json"}:
+        return text
+
+    return stripped[first_newline + 1:-3].strip()
+
+
 class ResearchOrchestrator:
     def __init__(
         self,
@@ -168,7 +184,7 @@ class ResearchOrchestrator:
     ) -> tuple[ModelResponse, AgentResult]:
         response = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=user_prompt, model_id=model_id))
         try:
-            return response, AgentResult.model_validate(json.loads(response.text))
+            return response, AgentResult.model_validate(json.loads(_normalize_structured_json(response.text)))
         except (json.JSONDecodeError, ValidationError) as first_exc:
             await self._event_bus.publish(
                 AgentEvent(
@@ -194,7 +210,7 @@ class ResearchOrchestrator:
             )
             repaired = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=repair_prompt, model_id=model_id))
             try:
-                parsed = AgentResult.model_validate(json.loads(repaired.text))
+                parsed = AgentResult.model_validate(json.loads(_normalize_structured_json(repaired.text)))
             except (json.JSONDecodeError, ValidationError) as second_exc:
                 raise StructuredOutputError(
                     "Structured output invalid after one repair attempt: "
