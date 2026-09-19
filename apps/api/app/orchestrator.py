@@ -210,7 +210,7 @@ class ResearchOrchestrator:
             )
             repaired = await provider.invoke(ModelRequest(system_prompt=AGENT_SYSTEM_PROMPT, user_prompt=repair_prompt, model_id=model_id))
             try:
-                parsed = AgentResult.model_validate(json.loads(_normalize_structured_json(repaired.text))
+                parsed = AgentResult.model_validate(json.loads(_normalize_structured_json(repaired.text)))
             except (json.JSONDecodeError, ValidationError) as second_exc:
                 raise StructuredOutputError(
                     "Structured output invalid after one repair attempt: "
