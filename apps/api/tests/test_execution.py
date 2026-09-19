@@ -4,7 +4,7 @@ import json
 from app.documents import DocumentStore
 from app.events import EventBus
 from app.models import AgentStatus, RunStatus
-from app.orchestrator import ResearchOrchestrator, _normalize_structured_json
+from app.orchestrator import MAIN_SYSTEM_PROMPT, ResearchOrchestrator, _normalize_structured_json
 from app.providers.base import ModelProvider, ModelRequest, ModelResponse
 from app.web_research import WebResearchAdapter, WebSource
 
@@ -257,3 +257,14 @@ def test_malformed_fenced_json_still_uses_existing_single_repair_attempt():
         pass
     else:
         raise AssertionError("Malformed fenced JSON must reach the existing repair path")
+
+def test_riven_final_brief_prompt_requires_safe_scannable_markdown():
+    assert "You are Riven" in MAIN_SYSTEM_PROMPT
+    assert "final evidence reviewer" in MAIN_SYSTEM_PROMPT
+    assert "Return Markdown only" in MAIN_SYSTEM_PROMPT
+    assert "no code fences and no HTML" in MAIN_SYSTEM_PROMPT
+    assert "## Executive summary" in MAIN_SYSTEM_PROMPT
+    assert "## Key findings" in MAIN_SYSTEM_PROMPT
+    assert "## Evidence and sources" in MAIN_SYSTEM_PROMPT
+    assert "## Uncertainty and limitations" in MAIN_SYSTEM_PROMPT
+    assert "## Riven's assessment" in MAIN_SYSTEM_PROMPT
