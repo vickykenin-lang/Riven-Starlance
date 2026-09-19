@@ -247,8 +247,8 @@ class ResearchOrchestrator:
                         follow_prompt,
                         stage="follow-up",
                     )
-                    response.input_tokens = (response.input_tokens or 0) + (follow_response.input_tokens or 0)
-                    response.output_tokens = (response.output_tokens or 0) + (follow_response.output_tokens or 0)
+                    follow_response.input_tokens = (response.input_tokens or 0) + (follow_response.input_tokens or 0)
+                    follow_response.output_tokens = (response.output_tokens or 0) + (follow_response.output_tokens or 0)
                     response = follow_response
 
             task.status = AgentStatus.VERIFYING
