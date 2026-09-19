@@ -145,6 +145,24 @@ export default function Home() {
 
       <section className="panel command-panel"><form onSubmit={startResearch}><div className="section-head"><div><p className="eyebrow">NEW MISSION</p><h2>Launch a research run</h2></div><span className="command-hint">Live SSE telemetry enabled</span></div><label htmlFor="query">Research task</label><textarea id="query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask a research question, compare evidence, or analyze uploaded documents..." minLength={3} required /><div className="button-row"><button type="submit" disabled={executing}>{executing ? "Research running…" : "Start research run"}</button><button type="button" className="secondary" onClick={previewEvidence}>Preview evidence</button></div></form>{error && <p className="error">{error}</p>}</section>
 
+      <section className="pixel-office panel">
+        <div className="section-head"><div><p className="eyebrow">LIVE AGENT FLOOR</p><h2>Riven Research Office</h2></div><span className="office-live"><i></i>{executing ? "Agents at work" : "Office standing by"}</span></div>
+        <div className="office-map">
+          <div className="office-wall"><span className="window w1"></span><span className="window w2"></span><span className="window w3"></span><span className="plant p1">♣</span><span className="plant p2">♣</span></div>
+          <div className="riven-station"><span className="pixel-person riven-person">R</span><span className="desk-top"></span><strong>Riven</strong><small>Reviewer</small><em className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</em></div>
+          {modelEntries.filter(([slot]) => slot !== "main").map(([slot], index) => {
+            const live = agentStates.find((agent) => agent.agent_id === slot);
+            const activity = live?.message || "Ready for research";
+            return <div className={`agent-station station-${index + 1}`} key={slot}>
+              <span className="speech">{activity}</span><span className="pixel-person">R{index + 1}</span><span className="desk-top"></span>
+              <strong>{live?.title || `Researcher ${index + 1}`}</strong><small>{live?.latest ? statusLabel(live.latest) : "ready"}</small><i className={statusClass(live?.latest)}></i>
+            </div>;
+          })}
+          <div className="office-lounge"><span>Evidence lounge</span><b>{liveWebSources.length} sources</b></div>
+          <div className="office-board"><span>Follow-ups</span><b>{followUps.length}</b></div>
+        </div>
+      </section>
+
       <section className="control-grid research-office">
         <article className="agent-card main-agent reviewer-desk"><div className="office-scene reviewer-scene"><span className="reviewer-avatar">R</span><span className="reviewer-label">Riven · reviewer</span></div><div className="card-head"><div><p className="eyebrow">MAIN AGENT</p><h2>Research Orchestrator</h2></div><span className={statusClass(orchestratorState)}>{statusLabel(orchestratorState)}</span></div><p>Plans the mission, assigns four workstreams, reviews evidence quality, resolves conflicts and produces the final synthesis.</p><div className="meta-line"><span>Model</span><strong>{system?.models?.main || "Pending"}</strong></div></article>
         {modelEntries.filter(([slot]) => slot !== "main").map(([slot, model], index) => {
