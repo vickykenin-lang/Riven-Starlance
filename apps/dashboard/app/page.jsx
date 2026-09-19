@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import RivenVirtualOffice from "./components/RivenVirtualOffice";
+import FinalBrief from "./components/FinalBrief";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -174,7 +175,7 @@ export default function Home() {
         })}
       </section>
 
-      {run && <><section className="summary panel"><div><span>Run</span><strong>{run.id}</strong></div><div><span>Status</span><strong>{run.status}</strong></div><div><span>Web sources</span><strong>{liveWebSources.length}</strong></div><div><span>Follow-ups</span><strong>{followUps.length}</strong></div></section>{liveWebSources.length > 0 && <section className="panel timeline"><div className="section-head"><h2>Live web evidence</h2><span>{liveWebSources.length} sources</span></div>{liveWebSources.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{item.metadata?.provider || "web"}</strong><span>{item.agent_id}</span><p>{item.message}</p></div>)}</section>}{run.final_answer && <section className="panel final-panel"><p className="eyebrow">MAIN SYNTHESIS</p><h2>Final research answer</h2><p className="final-answer">{run.final_answer}</p></section>}<section className="panel timeline"><div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>{events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{statusLabel(item.type)}</strong><span>{item.agent_id || "orchestrator"}</span><p>{item.message}</p></div>)}</section></>}
+      {run && <><section className="summary panel"><div><span>Run</span><strong>{run.id}</strong></div><div><span>Status</span><strong>{run.status}</strong></div><div><span>Web sources</span><strong>{liveWebSources.length}</strong></div><div><span>Follow-ups</span><strong>{followUps.length}</strong></div></section>{liveWebSources.length > 0 && <section className="panel timeline"><div className="section-head"><h2>Live web evidence</h2><span>{liveWebSources.length} sources</span></div>{liveWebSources.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{item.metadata?.provider || "web"}</strong><span>{item.agent_id}</span><p>{item.message}</p></div>)}</section>}{run.final_answer && <section className="panel final-panel"><FinalBrief answer={run.final_answer} /></section>}<section className="panel timeline"><div className="section-head"><h2>Live event timeline</h2><span>{events.length} events</span></div>{events.length === 0 ? <p>Waiting for events…</p> : events.map((item) => <div className="event" key={item.id}><time>{new Date(item.timestamp).toLocaleTimeString()}</time><strong>{statusLabel(item.type)}</strong><span>{item.agent_id || "orchestrator"}</span><p>{item.message}</p></div>)}</section></>}
     </main>
   );
 }
