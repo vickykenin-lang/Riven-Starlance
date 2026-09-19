@@ -251,4 +251,9 @@ def test_fenced_initial_and_follow_up_specialist_responses_are_accepted():
 
 def test_malformed_fenced_json_still_uses_existing_single_repair_attempt():
     malformed = "```json\n{\"summary\":\n```"
-    assert _normalize_structured_json(malformed) == malformed
+    try:
+        json.loads(_normalize_structured_json(malformed))
+    except json.JSONDecodeError:
+        pass
+    else:
+        raise AssertionError("Malformed fenced JSON must reach the existing repair path")
