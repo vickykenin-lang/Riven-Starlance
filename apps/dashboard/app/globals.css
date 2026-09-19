@@ -180,3 +180,122 @@ button:disabled { opacity: .55; cursor: wait; }
 .office-lounge { position:absolute; left:0; bottom:0; width:42%; height:116px; padding:26px; background:#7f9b7c; border-top:8px solid #5b7059; color:#213927; font-family:ui-monospace,monospace; }.office-lounge b,.office-board b { display:block; margin-top:8px; font-size:20px; }
 .office-board { position:absolute; right:0; bottom:0; width:31%; height:116px; padding:26px; background:#8880a3; border-top:8px solid #5b5671; color:#f1eafe; font-family:ui-monospace,monospace; }
 @media(max-width:900px){.office-map{min-height:760px}.station-1{left:7%;top:180px}.station-2{left:54%;top:180px}.station-3{left:7%;top:400px}.station-4{left:54%;top:400px}.office-lounge,.office-board{height:90px;width:50%;padding:16px}.speech{bottom:124px}.agent-station{height:120px}}
+
+
+/* Secure Riven virtual office
+ * Visual approach adapted from KbWen/agent-virtual-office (MIT).
+ * The component consumes Riven's existing same-origin SSE state only.
+ */
+.riven-virtual-office {
+  margin-top: 20px;
+  overflow: hidden;
+  border-color: #6b5139;
+  background:
+    radial-gradient(circle at 50% 0, rgba(56,189,248,.13), transparent 35%),
+    #181522;
+}
+.office-heading { align-items: center; }
+.office-metrics { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.office-metrics > span {
+  border: 1px solid #415675;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #111a2b;
+  color: #b9c8de;
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.office-metrics .office-now { color: #94a3b8; }
+.office-metrics .office-now.active {
+  color: #86efac;
+  border-color: #238553;
+  box-shadow: 0 0 15px rgba(34,197,94,.15);
+}
+.office-frame {
+  overflow: hidden;
+  border: 7px solid #372820;
+  border-radius: 9px;
+  background: #caa36d;
+  box-shadow: 0 18px 42px rgba(0,0,0,.33), inset 0 0 0 2px #8d6846;
+}
+.office-frame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 430px;
+  image-rendering: pixelated;
+}
+.riven-virtual-office text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  user-select: none;
+}
+.office-wall-art .room-label, .room-label {
+  fill: #4a3528;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.agent-bubble {
+  opacity: .78;
+  transition: opacity .2s ease;
+}
+.virtual-agent:hover .agent-bubble,
+.virtual-agent.is-working .agent-bubble,
+.virtual-agent.is-blocked .agent-bubble { opacity: 1; }
+.bubble-title { fill: #2d211c; font-size: 10px; font-weight: 900; }
+.bubble-copy { fill: #5e4b40; font-size: 7.4px; }
+.agent-name { fill: #f8fafc; font-size: 12px; font-weight: 900; }
+.agent-role { fill: #aabbd1; font-size: 8px; text-transform: uppercase; }
+.state-light { fill: #94a3b8; }
+.is-working .state-light { fill: #facc15; filter: drop-shadow(0 0 5px #facc15); }
+.is-complete .state-light { fill: #4ade80; filter: drop-shadow(0 0 5px #4ade80); }
+.is-blocked .state-light { fill: #fb7185; filter: drop-shadow(0 0 6px #fb7185); }
+.is-working .agent-sprite { animation: office-work-bob 1s steps(2, jump-none) infinite; transform-box: fill-box; transform-origin: center bottom; }
+.is-working .typing-arm.left-arm { animation: type-left .38s steps(2, jump-none) infinite; transform-box: fill-box; transform-origin: top center; }
+.is-working .typing-arm.right-arm { animation: type-right .38s steps(2, jump-none) infinite; transform-box: fill-box; transform-origin: top center; }
+.is-complete .agent-sprite { animation: office-celebrate .75s ease-in-out 2; transform-box: fill-box; transform-origin: center bottom; }
+.is-blocked .agent-sprite { animation: office-blocked 1.3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.board-title { fill: #33412d; font-size: 13px; font-weight: 900; letter-spacing: 2px; }
+.board-copy { fill: #52614a; font-size: 9px; }
+.office-attribution {
+  margin: 10px 2px 0;
+  color: #718096;
+  font-size: 10px;
+  text-align: right;
+}
+.office-attribution a { color: #7dd3fc; text-decoration: none; }
+.office-attribution a:hover { text-decoration: underline; }
+
+@keyframes office-work-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+@keyframes type-left {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes type-right {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-10deg); }
+}
+@keyframes office-celebrate {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-12px) rotate(-3deg); }
+  70% { transform: translateY(-5px) rotate(3deg); }
+}
+@keyframes office-blocked {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+}
+@media (max-width: 760px) {
+  .office-heading { align-items: flex-start; }
+  .office-metrics { justify-content: flex-start; }
+  .office-frame { overflow-x: auto; }
+  .office-frame svg { width: 900px; max-width: none; min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .riven-virtual-office *, .riven-virtual-office *::before, .riven-virtual-office *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
