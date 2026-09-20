@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import RivenRoom3D from "./riven-room-3d";
 import styles from "./riven-orchestrator-lab.module.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -96,105 +97,81 @@ export default function RivenOrchestratorLabPage() {
 
   return (
     <main className={`${styles.page} ${styles[`phase_${phase}`]}`}>
-      <div className={styles.ceilingGlow} />
-      <div className={styles.roomFrame}>
-        <header className={styles.topHud}>
-          <div className={styles.brand}>
-            <span className={styles.brandMark}>✦</span>
-            <span><strong>RIVEN-STarlance</strong><small>ORCHESTRATOR DEVELOPMENT LAB</small></span>
-          </div>
-          <div className={styles.systemState}>
-            <i className={ready ? styles.online : styles.pending} />
-            <span><strong>{ready ? "RUNTIME ONLINE" : "RUNTIME CHECK"}</strong><small>{system?.provider || "provider"} · {system?.region || "ap-south-1"}</small></span>
-          </div>
-        </header>
+      <header className={styles.topHud}>
+        <div className={styles.brand}>
+          <span className={styles.brandMark}>✦</span>
+          <span><strong>RIVEN–STARLANCE</strong><small>LIVE ORCHESTRATOR COMMAND ROOM</small></span>
+        </div>
+        <div className={styles.systemState}>
+          <i className={ready ? styles.online : styles.pending} />
+          <span><strong>{ready ? "RUNTIME ONLINE" : "RUNTIME CHECK"}</strong><small>{system?.provider || "provider"} · {system?.region || "ap-south-1"}</small></span>
+        </div>
+      </header>
 
-        <section className={styles.chamber}>
-          <div className={styles.wallGrid} />
-          <div className={styles.leftBay}>
-            <div className={styles.bayTitle}>MISSION INPUT</div>
-            <form onSubmit={launchMission} className={styles.missionForm}>
-              <textarea
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Give Riven a research mission…"
-                minLength={3}
-                required
-              />
-              <button type="submit" disabled={executing || !ready}>{executing ? "ACTIVATING…" : "LAUNCH MISSION"}</button>
-            </form>
-            <div className={styles.microStats}>
-              <span><small>MODEL</small><b>{mainModel}</b></span>
-              <span><small>EVENTS</small><b>{events.length}</b></span>
-              <span><small>SOURCES</small><b>{sourceCount}</b></span>
-            </div>
+      <section className={styles.commandDeck}>
+        <RivenRoom3D
+          phase={phase}
+          phaseTitle={phaseTitle}
+          phaseText={phaseText}
+          latestEvent={latestEvent}
+          runStatus={run?.status || "ready"}
+          sourceCount={sourceCount}
+          completedAgents={completedAgents}
+          failedAgents={failedAgents}
+          events={events}
+        />
+
+        <aside className={`${styles.glassPanel} ${styles.missionPanel}`}>
+          <div className={styles.panelEyebrow}>MISSION CONTROL</div>
+          <form onSubmit={launchMission} className={styles.missionForm}>
+            <textarea
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Give Riven a research mission…"
+              minLength={3}
+              required
+            />
+            <button type="submit" disabled={executing || !ready}>{executing ? "ACTIVATING…" : "LAUNCH MISSION"}</button>
+          </form>
+          <div className={styles.microStats}>
+            <span><small>MODEL</small><b>{mainModel}</b></span>
+            <span><small>EVENTS</small><b>{events.length}</b></span>
+            <span><small>SOURCES</small><b>{sourceCount}</b></span>
           </div>
+        </aside>
 
-          <div className={styles.centerStage}>
-            <div className={styles.namePlate}><small>MAIN ORCHESTRATOR</small><strong>RIVEN</strong><span>{phaseTitle}</span></div>
-
-            <div className={styles.holoRig}>
-              <div className={styles.outerRing} />
-              <div className={styles.midRing} />
-              <div className={styles.innerRing} />
-              <div className={styles.energyColumn} />
-              <div className={styles.rivenAvatar} aria-label={`Riven state: ${phaseTitle}`}>
-                <div className={styles.crown}><i /><i /><i /></div>
-                <div className={styles.head}><span className={styles.eyeLeft} /><span className={styles.eyeRight} /><b /></div>
-                <div className={styles.neck} />
-                <div className={styles.shoulders}><i /><i /></div>
-                <div className={styles.torso}><span className={styles.core}><b /></span><em /></div>
-                <div className={styles.armLeft}><i /></div>
-                <div className={styles.armRight}><i /></div>
-                <div className={styles.lower}><i /><i /></div>
+        <aside className={`${styles.glassPanel} ${styles.activityPanelWrap}`}>
+          <div className={styles.panelEyebrow}>LIVE ORCHESTRATION</div>
+          <div className={styles.activityPanel}>
+            <div><small>RUN</small><strong>{run?.status || "ready"}</strong></div>
+            <div><small>AGENTS</small><strong>{completedAgents}/4</strong></div>
+            <div><small>FOLLOW-UPS</small><strong>{followUps}</strong></div>
+            <div><small>FAILED</small><strong>{failedAgents}</strong></div>
+          </div>
+          <div className={styles.eventList}>
+            {events.slice(-5).reverse().map((event) => (
+              <div key={event.id}>
+                <i />
+                <span><strong>{event.agent_id || "Riven"}</strong><small>{event.message || event.type}</small></span>
               </div>
-              <div className={styles.platform}>
-                <div /><div /><span />
-              </div>
-              <div className={styles.dataArcLeft}><i /><i /><i /></div>
-              <div className={styles.dataArcRight}><i /><i /><i /></div>
-            </div>
-
-            <div className={styles.phaseCaption}>
-              <strong>{phaseTitle}</strong>
-              <span>{latestEvent?.message || phaseText}</span>
-            </div>
+            ))}
+            {!events.length && <p>Launch a mission to watch Riven coordinate real runtime events.</p>}
           </div>
+        </aside>
 
-          <aside className={styles.rightBay}>
-            <div className={styles.bayTitle}>LIVE ORCHESTRATION</div>
-            <div className={styles.activityPanel}>
-              <div><small>RUN</small><strong>{run?.status || "ready"}</strong></div>
-              <div><small>AGENTS COMPLETE</small><strong>{completedAgents}/4</strong></div>
-              <div><small>FOLLOW-UPS</small><strong>{followUps}</strong></div>
-              <div><small>FAILED</small><strong>{failedAgents}</strong></div>
-            </div>
-            <div className={styles.eventList}>
-              {events.slice(-6).reverse().map((event) => (
-                <div key={event.id}>
-                  <i />
-                  <span><strong>{event.agent_id || "Riven"}</strong><small>{event.message || event.type}</small></span>
-                </div>
-              ))}
-              {!events.length && <p>Launch a mission to watch Riven coordinate real runtime events.</p>}
-            </div>
-          </aside>
+        <div className={styles.phaseBar}>
+          <span>{phaseTitle}</span>
+          <strong>{latestEvent?.message || phaseText}</strong>
+          <em>LIVE STATE · SSE DRIVEN</em>
+        </div>
 
-          <div className={styles.floor}>
-            <div className={styles.floorLines} />
-            <div className={styles.emptyStationRow}>
-              {Array.from({ length: 6 }, (_, index) => <span key={index}><i /><b>FUTURE AGENT BAY {index + 1}</b></span>)}
-            </div>
-          </div>
+        {error && <div className={styles.error}>{error}</div>}
+      </section>
 
-          {error && <div className={styles.error}>{error}</div>}
-        </section>
-
-        <footer className={styles.footer}>
-          <span>RIVEN ORCHESTRATOR · SINGLE-AGENT VISUAL PROTOTYPE</span>
-          <span>ALL MOTION STATES DERIVED FROM LIVE RUN / SSE STATE</span>
-        </footer>
-      </div>
+      <footer className={styles.footer}>
+        <span>RIVEN ORCHESTRATOR · WEBGL COMMAND ROOM PROTOTYPE</span>
+        <span>REAL API + SSE STATE · INTERACTIVE CAMERA</span>
+      </footer>
     </main>
   );
 }
