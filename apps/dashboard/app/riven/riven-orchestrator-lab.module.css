@@ -453,44 +453,72 @@
 }
 
 @media (max-width: 720px) {
+  .page { padding: 6px; }
   .topHud {
     padding: 10px;
     border-radius: 12px;
+    flex-wrap: wrap;
   }
+  .brand,
+  .systemState { width: 100%; }
+  .systemState { justify-content: center; }
+  .brand { justify-content: center; }
   .brand strong { font-size: 10px; }
   .brand small,
   .systemState small { font-size: 6px; }
   .systemState strong { font-size: 8px; }
   .brandMark { width: 38px; height: 38px; flex-basis: 38px; }
   .commandDeck {
-    min-height: 1040px;
+    min-height: 1140px;
+    overflow: hidden;
+    border-radius: 16px;
   }
   .room3dShell,
   .room3dMount {
-    min-width: 1080px;
-    height: 760px;
+    inset: 0 auto auto 0;
+    width: 100%;
+    min-width: 0;
+    height: 620px;
   }
-  .missionPanel {
-    top: 720px;
-    left: 12px;
-    width: calc(50% - 18px);
-  }
-  .activityPanelWrap {
-    top: 720px;
-    right: 12px;
-    width: calc(50% - 18px);
+  .roomVignette,
+  .roomScanlines {
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 620px;
   }
   .roomBadge {
-    left: 540px;
+    top: 14px;
+    left: 50%;
+    min-width: 210px;
+    padding: 8px 14px 7px;
   }
+  .roomBadge strong { font-size: 21px; }
   .roomHint { display: none; }
-  .phaseBar {
-    left: 540px;
-    bottom: 286px;
-    width: 470px;
-    min-width: 470px;
+  .missionPanel,
+  .activityPanelWrap {
+    left: 12px;
+    right: 12px;
+    width: auto;
   }
+  .missionPanel { top: 700px; }
+  .activityPanelWrap { top: 920px; }
+  .phaseBar {
+    left: 12px;
+    right: 12px;
+    top: 635px;
+    bottom: auto;
+    width: auto;
+    min-width: 0;
+    transform: none;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .phaseBar em { display: none; }
   .footer {
+    padding-inline: 4px;
+    flex-direction: column;
+    align-items: flex-start;
     font-size: 6px;
   }
 }
