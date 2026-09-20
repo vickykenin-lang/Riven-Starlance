@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./rpg.css";
+import "./rpg-office.css";
 
 export const metadata = {
   title: "Riven-Starlance RPG Command Center",
