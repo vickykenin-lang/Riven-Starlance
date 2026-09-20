@@ -1,0 +1,317 @@
+:root {
+  --rpg-cyan: #35e8ff;
+  --rpg-violet: #a76cff;
+  --rpg-green: #4fffb2;
+  --rpg-amber: #ffb84d;
+}
+
+/* The game world stays a spatial scene. HTML HUD floats over it instead of becoming the scene. */
+.room3d-stage-shell {
+  height: min(900px, calc(100vh - 122px));
+  min-height: 720px;
+  max-width: 1540px;
+  border-color: rgba(74, 213, 255, .28);
+  background: #01040b;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .62), inset 0 0 100px rgba(27, 157, 229, .05);
+}
+
+.room2d-viewport {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(34, 174, 255, .11), transparent 30%),
+    #01040b;
+}
+.room2d-viewport::-webkit-scrollbar { display: none; }
+
+.room2d-world-wrap {
+  width: 100%;
+  min-width: 1180px;
+  height: 100%;
+  min-height: 720px;
+}
+
+.room2d-world {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.room2d-pan-hint {
+  position: sticky;
+  left: 50%;
+  bottom: 74px;
+  width: max-content;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border: 1px solid rgba(67, 211, 255, .18);
+  border-radius: 999px;
+  background: rgba(2, 8, 17, .74);
+  color: #658ca2;
+  font-size: 7px;
+  letter-spacing: .12em;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.room2d-wall-title {
+  fill: #85c9df;
+  font: 700 12px Inter, system-ui, sans-serif;
+  letter-spacing: 1.8px;
+}
+
+.room2d-floor-label text {
+  fill: #6f9fb4;
+  font: 700 10px Inter, system-ui, sans-serif;
+  letter-spacing: 2.6px;
+}
+
+.room2d-station {
+  cursor: pointer;
+  outline: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: filter .2s ease;
+}
+.room2d-station:hover,
+.room2d-station:focus { filter: brightness(1.16); }
+.room2d-station.reserve { opacity: .48; }
+.room2d-station.selected { filter: brightness(1.16); }
+
+.room2d-badge-name {
+  fill: #e9faff;
+  font: 700 10px Inter, system-ui, sans-serif;
+  letter-spacing: .25px;
+}
+.room2d-badge-state {
+  fill: var(--station-accent);
+  font: 800 8px Inter, system-ui, sans-serif;
+  letter-spacing: .8px;
+}
+.room2d-station-foot {
+  fill: #7898a9;
+  font: 600 8px Inter, system-ui, sans-serif;
+}
+.room2d-screen-title {
+  fill: #7ca8bb;
+  font: 700 7px Inter, system-ui, sans-serif;
+  letter-spacing: .8px;
+}
+.room2d-riven-label {
+  fill: #d9fbff;
+  font: 800 11px Inter, system-ui, sans-serif;
+  letter-spacing: 2px;
+}
+
+.room2d-station.working .room2d-screen-content {
+  filter: url(#tinyGlow);
+}
+.room2d-status-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: room2dPulse 1.2s ease-in-out infinite;
+}
+.room2d-live-link {
+  animation: room2dDataFlow 1.8s linear infinite;
+  filter: url(#tinyGlow);
+}
+.room2d-selected-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: room2dRing 8s linear infinite;
+}
+.room2d-radar {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: room2dRadar 1.8s linear infinite;
+}
+.room2d-operator.working {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: room2dWork 1.35s ease-in-out infinite alternate;
+}
+.room2d-operator.working .room2d-arm {
+  animation: room2dHands .78s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.room2d-hologram {
+  filter: url(#softGlow);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: room2dFloat 2.4s ease-in-out infinite;
+}
+.room2d-riven.active .room2d-hologram { animation-duration: 1.45s; }
+.room2d-riven.active .room2d-orbit { stroke-opacity: .58; }
+.room2d-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.room2d-orbit.one { animation: room2dRing 11s linear infinite; }
+.room2d-orbit.two { animation: room2dRingReverse 14s linear infinite; }
+.room2d-orbit.three { animation: room2dRing 9s linear infinite; }
+.room2d-orbit.four { animation: room2dRingReverse 17s linear infinite; }
+
+/* HUD is deliberately translucent so the room remains the primary interface. */
+.room3d-orchestrator-hud {
+  top: 14px;
+  padding: 8px 14px;
+  border: 1px solid rgba(53, 232, 255, .16);
+  border-radius: 14px;
+  background: rgba(1, 8, 17, .52);
+  backdrop-filter: blur(8px);
+}
+.room3d-orchestrator-hud strong { font-size: 25px; }
+.room3d-orchestrator-hud span { max-width: 360px; }
+
+.room3d-agent-hud,
+.room3d-live-hud,
+.room3d-mission-console,
+.room3d-telemetry {
+  background: rgba(2, 9, 19, .68);
+  backdrop-filter: blur(11px);
+}
+
+.room3d-agent-hud {
+  left: 14px;
+  bottom: 82px;
+  width: 252px;
+}
+.room3d-live-hud {
+  right: 14px;
+  bottom: 82px;
+  width: 292px;
+}
+.room3d-telemetry { top: 14px; right: 14px; }
+.room3d-mission-console {
+  bottom: 14px;
+  width: min(760px, calc(100% - 620px));
+}
+
+.room3d-ribbon span,
+.room3d-panel,
+.room3d-debrief {
+  background: linear-gradient(180deg, rgba(7, 20, 39, .92), rgba(2, 8, 18, .9));
+}
+
+@keyframes room2dPulse {
+  0%, 100% { opacity: .48; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1.55); }
+}
+@keyframes room2dDataFlow { to { stroke-dashoffset: -40; } }
+@keyframes room2dRing { to { transform: rotate(360deg); } }
+@keyframes room2dRingReverse { to { transform: rotate(-360deg); } }
+@keyframes room2dRadar { to { transform: rotate(360deg); } }
+@keyframes room2dWork {
+  from { transform: translateY(0); }
+  to { transform: translateY(-2px); }
+}
+@keyframes room2dHands {
+  from { opacity: .62; transform: translateX(-1px); }
+  to { opacity: 1; transform: translateX(1px); }
+}
+@keyframes room2dFloat {
+  0%, 100% { transform: translateY(0); opacity: .76; }
+  50% { transform: translateY(-7px); opacity: .98; }
+}
+
+@media (max-width: 920px) {
+  .room3d-stage-shell {
+    height: 780px;
+    min-height: 780px;
+    margin-left: 8px;
+    margin-right: 8px;
+    border-radius: 18px;
+  }
+  .room2d-world-wrap { min-width: 1100px; min-height: 780px; }
+  .room2d-pan-hint { display: block; bottom: 138px; }
+
+  .room3d-orchestrator-hud {
+    top: 9px;
+    padding: 6px 10px;
+  }
+  .room3d-orchestrator-hud small { font-size: 6px; }
+  .room3d-orchestrator-hud strong { font-size: 18px; letter-spacing: .18em; }
+  .room3d-orchestrator-hud span { font-size: 7px; max-width: 220px; }
+
+  .room3d-agent-hud {
+    left: 9px;
+    top: 72px;
+    bottom: auto;
+    width: 184px;
+    padding: 9px;
+    background: rgba(2, 9, 19, .62);
+  }
+  .room3d-agent-hud > p { max-height: 30px; overflow: hidden; }
+  .room3d-agent-hud dl { grid-template-columns: repeat(2, 1fr); }
+  .room3d-agent-hud dl div:nth-child(3) { display: none; }
+
+  .room3d-live-hud {
+    right: 9px;
+    top: 72px;
+    bottom: auto;
+    width: 174px;
+    padding: 8px;
+    background: rgba(2, 9, 19, .62);
+  }
+  .room3d-live-hud > div:nth-of-type(n+3) { display: none; }
+  .room3d-live-hud > div { grid-template-columns: 28px 1fr; }
+
+  .room3d-telemetry { display: none; }
+  .room3d-mission-console {
+    width: calc(100% - 20px);
+    min-width: 0;
+    bottom: 10px;
+    grid-template-columns: 1fr auto auto;
+    padding: 8px;
+  }
+  .room3d-mission-console > div { grid-column: 1 / -1; }
+  .room3d-mission-console textarea { min-width: 0; }
+
+  .room3d-ribbon {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    padding: 0 8px;
+  }
+  .room3d-ribbon span,
+  .room3d-ribbon span:first-child,
+  .room3d-ribbon span:last-child { border-radius: 8px; }
+}
+
+@media (max-width: 560px) {
+  .room3d-topbar { padding: 8px 10px; min-height: 58px; }
+  .room3d-brand strong { font-size: 10px; }
+  .room3d-brand small, .room3d-status small { font-size: 5px; }
+  .room3d-status span { font-size: 8px; }
+  .room3d-stage-shell { height: 760px; min-height: 760px; }
+  .room2d-world-wrap { min-width: 1040px; min-height: 760px; }
+  .room3d-agent-hud { width: 156px; }
+  .room3d-live-hud { width: 148px; }
+  .room3d-agent-hud dl { display: none; }
+  .room3d-live-hud header { padding-bottom: 4px; }
+  .room3d-live-hud > p { margin: 6px 0; }
+  .room3d-mission-console {
+    grid-template-columns: 1fr auto;
+  }
+  .room3d-mission-console textarea { grid-column: 1 / -1; height: 34px; }
+  .room3d-mission-console .room3d-scan { display: none; }
+  .room2d-pan-hint { bottom: 118px; font-size: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room2d-status-pulse,
+  .room2d-live-link,
+  .room2d-selected-ring,
+  .room2d-radar,
+  .room2d-operator,
+  .room2d-arm,
+  .room2d-hologram,
+  .room2d-orbit { animation: none !important; }
+}

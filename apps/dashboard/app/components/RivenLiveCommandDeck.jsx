@@ -1,12 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-
-const RivenCommandRoomScene = dynamic(() => import("./RivenCommandRoomScene"), {
-  ssr: false,
-  loading: () => <div className="room3d-loading"><span></span><strong>Initializing live command room…</strong></div>,
-});
+import RivenCommandRoom2D from "./RivenCommandRoom2D";
 
 const ACCENTS = ["cyan", "violet", "amber", "emerald", "rose", "blue", "lime", "fuchsia", "orange", "teal", "indigo", "sky", "green", "purple", "red"];
 const RESERVE_ROLES = [
@@ -124,7 +119,7 @@ export default function RivenLiveCommandDeck({
   return (
     <main className="room3d-page">
       <nav className="room3d-topbar">
-        <div className="room3d-brand"><i>✦</i><span><strong>RIVEN-STARLANCE</strong><small>LIVE AI COMMAND ROOM</small></span></div>
+        <div className="room3d-brand"><i>✦</i><span><strong>RIVEN-STARLANCE</strong><small>LIVE RPG COMMAND ROOM</small></span></div>
         <div className="room3d-status"><i className={ready ? "online" : "pending"}></i><span>{ready ? "SYSTEMS ONLINE" : "SYSTEM CHECK"}<small>{connected.length}/15 CONNECTED · {working} WORKING</small></span></div>
       </nav>
 
@@ -138,7 +133,7 @@ export default function RivenLiveCommandDeck({
       </section>
 
       <section className="room3d-stage-shell">
-        <RivenCommandRoomScene stations={stations} orchestratorActive={orchestratorActive} selectedId={selected?.id} onSelect={setSelectedAgent} />
+        <RivenCommandRoom2D stations={stations} orchestratorActive={orchestratorActive} selectedId={selected?.id} onSelect={setSelectedAgent} />
 
         <div className="room3d-orchestrator-hud">
           <small>MAIN ORCHESTRATOR</small>
@@ -204,7 +199,7 @@ export default function RivenLiveCommandDeck({
       </section>
 
       {run?.final_answer && <section className="room3d-debrief"><small>MISSION DEBRIEF</small><h2>Final synthesis</h2><p>{run.final_answer}</p></section>}
-      <footer className="room3d-footer"><span>RIVEN-STARLANCE · LIVE COMMAND ROOM</span><span>15-STATION SCENE · REAL SSE TELEMETRY</span></footer>
+      <footer className="room3d-footer"><span>RIVEN-STARLANCE · LIVE RPG COMMAND ROOM</span><span>15-STATION SCENE · REAL SSE TELEMETRY</span></footer>
     </main>
   );
 }
