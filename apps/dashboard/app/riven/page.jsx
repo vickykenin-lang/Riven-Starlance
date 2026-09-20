@@ -59,119 +59,73 @@ export default function RivenOrchestratorLabPage() {
   async function launchMission(event) {
     event.preventDefault();
     if (query.trim().length < 3) return;
-
-    setError("");
-    setEvents([]);
-    setRun(null);
-    setExecuting(true);
-    eventSourceRef.current?.close();
-
+    setError(""); setEvents([]); setRun(null); setExecuting(true); eventSourceRef.current?.close();
     try {
-      const create = await fetch(`${API_BASE}/api/runs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
-      });
+      const create = await fetch(`${API_BASE}/api/runs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: query.trim() }) });
       const created = await create.json().catch(() => ({}));
       if (!create.ok) throw new Error(created.detail || "Could not create mission.");
       setRun(created);
-
       const stream = new EventSource(`${API_BASE}/api/runs/${created.id}/events`);
       eventSourceRef.current = stream;
-      stream.onmessage = (message) => {
-        const payload = JSON.parse(message.data);
-        setEvents((current) => [...current, payload]);
-      };
+      stream.onmessage = (message) => setEvents((current) => [...current, JSON.parse(message.data)]);
       stream.onerror = () => setError((current) => current || "Live event stream disconnected.");
-
       const execute = await fetch(`${API_BASE}/api/runs/${created.id}/execute`, { method: "POST" });
       const executed = await execute.json().catch(() => ({}));
       if (!execute.ok) throw new Error(executed.detail || "Mission execution could not start.");
       setRun(executed);
-    } catch (err) {
-      setError(err.message || "Mission failed to start.");
-    } finally {
-      setExecuting(false);
-    }
+    } catch (err) { setError(err.message || "Mission failed to start."); }
+    finally { setExecuting(false); }
   }
 
   return (
     <main className={`${styles.page} ${styles[`phase_${phase}`]}`}>
       <header className={styles.topHud}>
-        <div className={styles.brand}>
-          <span className={styles.brandMark}>✦</span>
-          <span><strong>RIVEN–STARLANCE</strong><small>LIVE ORCHESTRATOR COMMAND ROOM</small></span>
-        </div>
-        <div className={styles.systemState}>
-          <i className={ready ? styles.online : styles.pending} />
-          <span><strong>{ready ? "RUNTIME ONLINE" : "RUNTIME CHECK"}</strong><small>{system?.provider || "provider"} · {system?.region || "ap-south-1"}</small></span>
-        </div>
+        <div className={styles.brand}><span className={styles.brandMark}>✦</span><span><strong>RIVEN–STARLANCE</strong><small>LIVE ORCHESTRATOR COMMAND ROOM</small></span></div>
+        <div className={styles.systemState}><i className={ready ? styles.online : styles.pending} /><span><strong>{ready ? "RUNTIME ONLINE" : "RUNTIME CHECK"}</strong><small>{system?.provider || "provider"} · {system?.region || "ap-south-1"}</small></span></div>
       </header>
 
       <section className={styles.commandDeck}>
-        <RivenRoom3D
-          phase={phase}
-          phaseTitle={phaseTitle}
-          phaseText={phaseText}
-          latestEvent={latestEvent}
-          runStatus={run?.status || "ready"}
-          sourceCount={sourceCount}
-          completedAgents={completedAgents}
-          failedAgents={failedAgents}
-          events={events}
-        />
+        <RivenRoom3D phase={phase} phaseTitle={phaseTitle} phaseText={phaseText} latestEvent={latestEvent} runStatus={run?.status || "ready"} sourceCount={sourceCount} completedAgents={completedAgents} failedAgents={failedAgents} events={events} />
+
+        <div className="architecture" aria-hidden="true">
+          <div className="ceilingRail railA" /><div className="ceilingRail railB" /><div className="ceilingRail railC" />
+          <div className="portal portalLeft"><i /><i /><i /></div><div className="portal portalRight"><i /><i /><i /></div>
+          <div className="floorGuide floorLeft" /><div className="floorGuide floorRight" />
+          <div className="cornerLabel labelLeft">NODE // A-01</div><div className="cornerLabel labelRight">NODE // A-02</div>
+        </div>
 
         <aside className={`${styles.glassPanel} ${styles.missionPanel}`}>
           <div className={styles.panelEyebrow}>MISSION CONTROL</div>
           <form onSubmit={launchMission} className={styles.missionForm}>
-            <textarea
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Give Riven a research mission…"
-              minLength={3}
-              required
-            />
+            <textarea value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Give Riven a research mission…" minLength={3} required />
             <button type="submit" disabled={executing || !ready}>{executing ? "ACTIVATING…" : "LAUNCH MISSION"}</button>
           </form>
-          <div className={styles.microStats}>
-            <span><small>MODEL</small><b>{mainModel}</b></span>
-            <span><small>EVENTS</small><b>{events.length}</b></span>
-            <span><small>SOURCES</small><b>{sourceCount}</b></span>
-          </div>
+          <div className={styles.microStats}><span><small>MODEL</small><b>{mainModel}</b></span><span><small>EVENTS</small><b>{events.length}</b></span><span><small>SOURCES</small><b>{sourceCount}</b></span></div>
         </aside>
 
         <aside className={`${styles.glassPanel} ${styles.activityPanelWrap}`}>
           <div className={styles.panelEyebrow}>LIVE ORCHESTRATION</div>
-          <div className={styles.activityPanel}>
-            <div><small>RUN</small><strong>{run?.status || "ready"}</strong></div>
-            <div><small>AGENTS</small><strong>{completedAgents}/4</strong></div>
-            <div><small>FOLLOW-UPS</small><strong>{followUps}</strong></div>
-            <div><small>FAILED</small><strong>{failedAgents}</strong></div>
-          </div>
-          <div className={styles.eventList}>
-            {events.slice(-5).reverse().map((event) => (
-              <div key={event.id}>
-                <i />
-                <span><strong>{event.agent_id || "Riven"}</strong><small>{event.message || event.type}</small></span>
-              </div>
-            ))}
-            {!events.length && <p>Launch a mission to watch Riven coordinate real runtime events.</p>}
-          </div>
+          <div className={styles.activityPanel}><div><small>RUN</small><strong>{run?.status || "ready"}</strong></div><div><small>AGENTS</small><strong>{completedAgents}/4</strong></div><div><small>FOLLOW-UPS</small><strong>{followUps}</strong></div><div><small>FAILED</small><strong>{failedAgents}</strong></div></div>
+          <div className={styles.eventList}>{events.slice(-5).reverse().map((event) => (<div key={event.id}><i /><span><strong>{event.agent_id || "Riven"}</strong><small>{event.message || event.type}</small></span></div>))}{!events.length && <p>Launch a mission to watch Riven coordinate real runtime events.</p>}</div>
         </aside>
 
-        <div className={styles.phaseBar}>
-          <span>{phaseTitle}</span>
-          <strong>{latestEvent?.message || phaseText}</strong>
-          <em>LIVE STATE · SSE DRIVEN</em>
-        </div>
-
+        <div className={styles.phaseBar}><span>{phaseTitle}</span><strong>{latestEvent?.message || phaseText}</strong><em>LIVE STATE · SSE DRIVEN</em></div>
         {error && <div className={styles.error}>{error}</div>}
       </section>
 
-      <footer className={styles.footer}>
-        <span>RIVEN ORCHESTRATOR · WEBGL COMMAND ROOM PROTOTYPE</span>
-        <span>REAL API + SSE STATE · INTERACTIVE CAMERA</span>
-      </footer>
+      <footer className={styles.footer}><span>RIVEN ORCHESTRATOR · WEBGL COMMAND ROOM PROTOTYPE</span><span>REAL API + SSE STATE · INTERACTIVE CAMERA</span></footer>
+      <style jsx>{`
+        .architecture{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;border-radius:20px}
+        .ceilingRail{position:absolute;top:108px;left:50%;height:1px;background:linear-gradient(90deg,transparent,rgba(86,231,255,.5),transparent);transform:translateX(-50%);box-shadow:0 0 18px rgba(86,231,255,.2)}
+        .railA{width:54%;top:122px}.railB{width:42%;top:138px;opacity:.55}.railC{width:30%;top:154px;opacity:.32}
+        .portal{position:absolute;top:178px;width:150px;height:470px;border-top:1px solid rgba(86,231,255,.28);border-bottom:1px solid rgba(86,231,255,.12);opacity:.78}
+        .portalLeft{left:330px;border-left:2px solid rgba(255,167,81,.34);transform:skewY(-8deg)}.portalRight{right:330px;border-right:2px solid rgba(86,231,255,.4);transform:skewY(8deg)}
+        .portal i{display:block;height:1px;margin-top:112px;background:linear-gradient(90deg,rgba(86,231,255,.05),rgba(86,231,255,.32),transparent)}
+        .floorGuide{position:absolute;bottom:78px;width:35%;height:1px;background:linear-gradient(90deg,transparent,rgba(86,231,255,.42));box-shadow:0 0 12px rgba(86,231,255,.15)}
+        .floorLeft{left:17%;transform:rotate(-7deg);transform-origin:left}.floorRight{right:17%;transform:rotate(7deg) scaleX(-1);transform-origin:right}
+        .cornerLabel{position:absolute;bottom:46px;color:rgba(105,188,218,.45);font-size:7px;letter-spacing:.24em}.labelLeft{left:32px}.labelRight{right:32px}
+        @media(max-width:720px){.ceilingRail{top:100px}.railA{width:72%}.railB{width:58%}.railC{width:44%}.portal{top:190px;height:430px;width:54px}.portalLeft{left:8px}.portalRight{right:8px}.floorGuide{bottom:170px;width:44%}.floorLeft{left:5%}.floorRight{right:5%}.cornerLabel{display:none}}
+      `}</style>
     </main>
   );
 }
