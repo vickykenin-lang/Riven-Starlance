@@ -57,30 +57,29 @@
 }
 
 @media (max-width: 760px) {
-  /* Keep the character as the focal point, but stop the scene from consuming
-     almost the entire first mobile viewport. Mission control should read as
-     part of the command room, not as a second page below a decorative hero. */
+  /* Keep Riven visually dominant while making the first mobile viewport useful:
+     the mission console should be visible without a full-screen hero scroll. */
   [class*="commandDeck"] {
-    min-height: 1040px !important;
+    min-height: 970px !important;
   }
 
   [class*="room3dShell"],
   [class*="room3dMount"],
   [class*="roomVignette"],
   [class*="roomScanlines"] {
-    height: 520px !important;
+    height: 450px !important;
   }
 
   [class*="phaseBar"] {
-    top: 535px !important;
+    top: 465px !important;
   }
 
   [class*="missionPanel"] {
-    top: 592px !important;
+    top: 522px !important;
   }
 
   [class*="activityPanelWrap"] {
-    top: 812px !important;
+    top: 742px !important;
   }
 
   [class*="commandDeck"]::before,
@@ -95,9 +94,9 @@
   [class*="commandDeck"]::after { right: -24px; }
 
   [class*="room3dShell"]::before {
-    bottom: 52px;
+    bottom: 42px;
     width: 58vw;
-    height: 70px;
-    opacity: .66;
+    height: 64px;
+    opacity: .64;
   }
 }
