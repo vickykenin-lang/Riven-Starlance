@@ -37,7 +37,7 @@ jobs:
           npm run start > /tmp/riven-dashboard.log 2>&1 &
           echo $! > /tmp/riven-dashboard.pid
           for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:3000/riven >/dev/null; then
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -45,11 +45,11 @@ jobs:
           cat /tmp/riven-dashboard.log
           exit 1
       - uses: browser-actions/setup-chrome@v1
-      - name: Capture Riven desktop and mobile screenshots
+      - name: Capture Riven orchestration dashboard desktop and mobile screenshots
         run: |
           mkdir -p visual-artifacts
-          chrome --headless=new --no-sandbox --hide-scrollbars --disable-gpu-sandbox --virtual-time-budget=12000 --window-size=1440,900 --screenshot=visual-artifacts/riven-desktop.png http://127.0.0.1:3000/riven
-          chrome --headless=new --no-sandbox --hide-scrollbars --disable-gpu-sandbox --virtual-time-budget=12000 --window-size=412,915 --screenshot=visual-artifacts/riven-mobile.png http://127.0.0.1:3000/riven
+          chrome --headless=new --no-sandbox --hide-scrollbars --disable-gpu-sandbox --virtual-time-budget=12000 --window-size=1440,900 --screenshot=visual-artifacts/riven-desktop.png http://127.0.0.1:3000/
+          chrome --headless=new --no-sandbox --hide-scrollbars --disable-gpu-sandbox --virtual-time-budget=12000 --window-size=412,915 --screenshot=visual-artifacts/riven-mobile.png http://127.0.0.1:3000/
       - name: Upload Riven visual artifacts
         uses: actions/upload-artifact@v4
         with:

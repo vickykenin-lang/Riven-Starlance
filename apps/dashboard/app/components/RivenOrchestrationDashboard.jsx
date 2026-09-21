@@ -1,0 +1,24 @@
+"use client";
+
+import "../orchestration-v2.css";
+
+const NODES=[
+["router","Router",50,8],["researcher","Researcher",65,8],["analyst","Analyst",80,15],["web-scout","Web Scout",88,29],["vision","Vision",90,45],["ocr","OCR",89,61],["data-miner","Data Miner",81,77],["knowledge","Knowledge",66,88],["summarizer","Summarizer",50,91],["report-builder","Report Builder",34,88],["qa-tester","QA Tester",19,77],["safety-guard","Safety Guard",10,61],["evaluator","Evaluator",10,44],["planner","Planner",13,27],["optimizer","Optimizer",27,14]
+];
+const ACTIVE=new Set(["router","researcher","web-scout","data-miner","report-builder","safety-guard"]);
+function key(v){return String(v||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
+function statusFor(id,states){const s=states.find(x=>key(x.agent_id)===id); if(!s)return ACTIVE.has(id)?"ready":"idle"; const v=key(s.latest||s.status); if(v.includes("fail")||v.includes("error"))return"error";if(v.includes("complete")||v.includes("done"))return"done";return"live"}
+export default function RivenOrchestrationDashboard(p){
+ const active=p.agentStates.filter(x=>!["completed","failed"].includes(String(x.latest||x.status))).length;
+ const mission=p.run?.query||p.query||"Awaiting mission directive";
+ const findings=p.events.filter(e=>["source.found","finding.created","task.completed"].includes(e.type)).slice(-5).reverse();
+ return <main className="rv2">
+  <header><div className="rv2-brand"><div className="pulse">⌁</div><div><b>R I V E N</b><small>RESEARCH ORCHESTRATOR · MULTI-AGENT INTELLIGENCE</small></div></div><div className="rv2-kpis"><div><small>SYSTEM STATUS</small><b className="ok">● {p.system?"Operational":"Connecting"}</b></div><div><small>ACTIVE AGENTS</small><b>{active} / 15</b></div><div><small>TASKS</small><b>{p.run?.tasks?.length||0}</b></div><div><small>REGION</small><b>{p.system?.region||"—"}</b></div></div><div className="version">RIVEN <em>v2.0</em></div></header>
+  <aside><nav>{["▣ Dashboard","⊞ New Mission","♧ Agents","▱ Knowledge","⌘ Tools","◉ Data Sources","□ Library","⚙ Settings"].map((x,i)=><button className={i===0?"sel":""} key={x}>{x}</button>)}</nav><div className="founder"><b>Vicky Gautam</b><small>Founder</small></div></aside>
+  <section className="activity"><div className="title">LIVE ACTIVITY <span>● {p.events.length?"Streaming":"Ready"}</span></div><div className="timeline">{p.events.slice(-9).reverse().map((e,i)=><div className="evt" key={i}><i></i><b>{e.agent_id||"Riven"}</b><span>{e.message||e.type}</span></div>)}{!p.events.length&&<div className="empty">Live SSE events will appear here when a mission starts.</div>}</div></section>
+  <section className="map"><svg viewBox="0 0 1000 700" preserveAspectRatio="none"><defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>{NODES.map(([id,,x,y])=>{const s=statusFor(id,p.agentStates);return <line key={id} x1="500" y1="350" x2={x*10} y2={y*7} className={s==="live"?"route live":"route"}/>})}</svg><div className="hub"><div className="wave">⌁</div><b>R I V E N</b><strong>ORCHESTRATION<br/>HUB</strong><small>PLAN · ROUTE · EXECUTE<br/>SYNTHESIZE</small></div>{NODES.map(([id,name,x,y],i)=>{const s=statusFor(id,p.agentStates);return <div key={id} className={`node ${s}`} style={{left:`${x}%`,top:`${y}%`}}><small>{String(i+1).padStart(2,"0")}</small><b>{name}</b><span>● {s.toUpperCase()}</span></div>})}</section>
+  <section className="right"><div className="card mission"><div className="title">MISSION OVERVIEW</div><h3>{mission}</h3><p>Status <b>{p.run?.status||"Ready"}</b></p><p>Agents <b>{p.run?.tasks?.length||0}</b></p><p>Run <b>{p.run?.id?String(p.run.id).slice(0,8):"—"}</b></p></div><div className="card"><div className="title">DATA SOURCES</div><div className="sourcegrid"><span>◎ Web</span><span>⌘ APIs</span><span>▤ Docs</span><span>◈ Evidence</span></div></div><div className="card"><div className="title">REAL-TIME METRICS</div><div className="metrics"><span><b>{p.events.length}</b>Events</span><span><b>{p.liveWebSources.length}</b>Web Sources</span><span><b>{p.documents.length}</b>Documents</span></div></div><div className="card"><div className="title">RECENT FINDINGS</div>{findings.length?findings.map((f,i)=><p key={i}>{f.message||f.type}</p>):<p className="muted">No findings yet.</p>}</div></section>
+  <section className="pipeline">{["MISSION INPUT","TASK ROUTING","AGENT EXECUTION","EVIDENCE COLLECTION","SYNTHESIS & REPORT"].map((x,i)=><div key={x}><b>{i+1}</b><span>{x}</span></div>)}</section>
+  <form className="command" onSubmit={p.startResearch}><input value={p.query} onChange={e=>p.setQuery(e.target.value)} placeholder="Give Riven a research mission..."/><button disabled={p.executing||p.query.trim().length<2}>{p.executing?"RUNNING...":"START MISSION →"}</button><span>15 Agents</span>{p.error&&<small className="err">{p.error}</small>}</form>
+ </main>
+}
