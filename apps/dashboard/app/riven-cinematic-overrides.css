@@ -57,6 +57,29 @@
 }
 
 @media (max-width: 760px) {
+  [class*="commandDeck"] {
+    min-height: 1060px;
+  }
+
+  [class*="room3dShell"],
+  [class*="room3dMount"],
+  [class*="roomVignette"],
+  [class*="roomScanlines"] {
+    height: 560px;
+  }
+
+  [class*="phaseBar"] {
+    top: 575px;
+  }
+
+  [class*="missionPanel"] {
+    top: 640px;
+  }
+
+  [class*="activityPanelWrap"] {
+    top: 860px;
+  }
+
   [class*="commandDeck"]::before,
   [class*="commandDeck"]::after {
     bottom: -12px;
@@ -69,9 +92,9 @@
   [class*="commandDeck"]::after { right: -24px; }
 
   [class*="room3dShell"]::before {
-    bottom: 76px;
+    bottom: 58px;
     width: 58vw;
-    height: 82px;
+    height: 72px;
     opacity: .7;
   }
 }
