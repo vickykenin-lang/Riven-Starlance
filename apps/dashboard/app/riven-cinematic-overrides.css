@@ -57,6 +57,32 @@
 }
 
 @media (max-width: 760px) {
+  /* Keep the character as the focal point, but stop the scene from consuming
+     almost the entire first mobile viewport. Mission control should read as
+     part of the command room, not as a second page below a decorative hero. */
+  [class*="commandDeck"] {
+    min-height: 1040px !important;
+  }
+
+  [class*="room3dShell"],
+  [class*="room3dMount"],
+  [class*="roomVignette"],
+  [class*="roomScanlines"] {
+    height: 520px !important;
+  }
+
+  [class*="phaseBar"] {
+    top: 535px !important;
+  }
+
+  [class*="missionPanel"] {
+    top: 592px !important;
+  }
+
+  [class*="activityPanelWrap"] {
+    top: 812px !important;
+  }
+
   [class*="commandDeck"]::before,
   [class*="commandDeck"]::after {
     bottom: -12px;
@@ -69,9 +95,9 @@
   [class*="commandDeck"]::after { right: -24px; }
 
   [class*="room3dShell"]::before {
-    bottom: 76px;
+    bottom: 52px;
     width: 58vw;
-    height: 82px;
-    opacity: .7;
+    height: 70px;
+    opacity: .66;
   }
 }
