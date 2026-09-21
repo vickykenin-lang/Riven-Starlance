@@ -1,0 +1,77 @@
+/* Focused cinematic foreground pass for the live /riven command deck.
+   Purely presentational: no mission, API, SSE, or runtime state is represented here. */
+
+[class*="commandDeck"]::before,
+[class*="commandDeck"]::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  bottom: -24px;
+  width: clamp(250px, 27vw, 430px);
+  height: 178px;
+  pointer-events: none;
+  border: 1px solid rgba(78, 219, 255, .32);
+  background:
+    linear-gradient(90deg, transparent 0 8%, rgba(86, 231, 255, .75) 8% 8.7%, transparent 8.7% 72%, rgba(255, 154, 69, .6) 72% 72.7%, transparent 72.7%),
+    repeating-linear-gradient(90deg, rgba(90, 205, 240, .07) 0 1px, transparent 1px 34px),
+    linear-gradient(180deg, rgba(16, 39, 57, .96), rgba(3, 10, 18, .98) 55%, rgba(1, 5, 10, 1));
+  box-shadow:
+    0 -10px 40px rgba(18, 174, 229, .10),
+    inset 0 1px 0 rgba(180, 241, 255, .12),
+    inset 0 22px 44px rgba(45, 183, 226, .05);
+  opacity: .94;
+}
+
+[class*="commandDeck"]::before {
+  left: -38px;
+  transform: perspective(520px) rotateX(58deg) rotateZ(7deg) skewX(-5deg);
+  transform-origin: left bottom;
+  clip-path: polygon(0 28%, 86% 0, 100% 20%, 93% 100%, 0 100%);
+}
+
+[class*="commandDeck"]::after {
+  right: -38px;
+  transform: perspective(520px) rotateX(58deg) rotateZ(-7deg) skewX(5deg);
+  transform-origin: right bottom;
+  clip-path: polygon(14% 0, 100% 28%, 100% 100%, 7% 100%, 0 20%);
+}
+
+[class*="room3dShell"]::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 54px;
+  width: min(42vw, 590px);
+  height: 118px;
+  transform: translateX(-50%) perspective(600px) rotateX(67deg);
+  transform-origin: center bottom;
+  pointer-events: none;
+  border: 1px solid rgba(82, 226, 255, .22);
+  border-radius: 48% 48% 12px 12px;
+  background:
+    radial-gradient(ellipse at 50% 22%, rgba(75, 229, 255, .17), transparent 45%),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(68, 199, 235, .09) 39px 40px),
+    linear-gradient(180deg, rgba(12, 31, 46, .82), rgba(2, 9, 16, .95));
+  box-shadow: 0 0 45px rgba(54, 215, 255, .10), inset 0 0 35px rgba(64, 204, 255, .06);
+}
+
+@media (max-width: 760px) {
+  [class*="commandDeck"]::before,
+  [class*="commandDeck"]::after {
+    bottom: -12px;
+    width: 42vw;
+    height: 112px;
+    opacity: .72;
+  }
+
+  [class*="commandDeck"]::before { left: -24px; }
+  [class*="commandDeck"]::after { right: -24px; }
+
+  [class*="room3dShell"]::before {
+    bottom: 76px;
+    width: 58vw;
+    height: 82px;
+    opacity: .7;
+  }
+}
