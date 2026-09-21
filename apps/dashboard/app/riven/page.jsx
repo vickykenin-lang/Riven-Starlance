@@ -126,6 +126,10 @@ export default function RivenOrchestratorLabPage() {
         .cornerLabel{position:absolute;bottom:46px;color:rgba(105,188,218,.45);font-size:7px;letter-spacing:.24em}.labelLeft{left:32px}.labelRight{right:32px}
         @media(max-width:720px){.ceilingRail{top:100px}.railA{width:72%}.railB{width:58%}.railC{width:44%}.portal{top:190px;height:430px;width:54px}.portalLeft{left:8px}.portalRight{right:8px}.floorGuide{bottom:170px;width:44%}.floorLeft{left:5%}.floorRight{right:5%}.cornerLabel{display:none}}
       `}</style>
+      <style jsx global>{`
+        [aria-label^="Interactive Riven command room"] canvas{transform:translateX(7%) scale(1.12);transform-origin:50% 58%;}
+        @media(max-width:720px){[aria-label^="Interactive Riven command room"] canvas{transform:none;}}
+      `}</style>
     </main>
   );
 }
